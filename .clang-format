@@ -1,0 +1,6 @@
+BasedOnStyle: LLVM
+BreakBeforeBraces: GNU
+ColumnLimit: 0
+IndentCaseLabels: true
+PointerAlignment: Middle
+SpaceAfterCStyleCast: true

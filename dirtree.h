@@ -1,0 +1,66 @@
+/*
+Copyright (C) 2016  Charles Cagle
+
+This file is part of archive2sqfs.
+
+archive2sqfs is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, version 3.
+
+archive2sqfs is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+#ifndef LSL_DIRTREE_H
+#define LSL_DIRTREE_H
+
+#include "sqsh_writer.h"
+
+struct dirtree_entry
+{
+  char const * name;
+  struct dirtree * inode;
+};
+
+struct dirtree_addi_dir
+{
+  size_t nentries;
+  size_t space;
+  struct dirtree_entry * entries;
+  uint32_t filesize;
+  uint32_t nlink;
+  uint32_t dtable_start_block;
+  uint16_t dtable_start_offset;
+};
+
+union dirtree_addi
+{
+  struct dirtree_addi_dir dir;
+};
+
+struct dirtree
+{
+  uint16_t inode_type;
+  mode_t mode;
+  uid_t uid;
+  gid_t gid;
+  time_t mtime;
+  ino_t inode_number;
+  uint64_t inode_address;
+
+  union dirtree_addi addi;
+};
+
+void dirtree_dir_init(struct dirtree *, struct sqsh_writer *);
+struct dirtree * dirtree_dir_new(struct sqsh_writer *);
+struct dirtree * dirtree_get_subdir_for_path(struct sqsh_writer *, struct dirtree *, char const *);
+void dirtree_dump_tree(struct dirtree const *);
+void dirtree_write_tables(struct sqsh_writer *, struct dirtree *);
+void dirtree_free(struct dirtree *);
+
+#endif
