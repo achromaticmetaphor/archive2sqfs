@@ -58,6 +58,28 @@ static void dirtree_dirop_prep(struct dirtree * const dt)
     }
 }
 
+void dirtree_reg_init(struct dirtree * const dt, struct sqsh_writer * const wr)
+{
+  dt->inode_type = SQFS_INODE_TYPE_REG;
+  dt->mode = 0644;
+  dt->uid = 0;
+  dt->gid = 0;
+  dt->mtime = 0;
+  dt->inode_number = sqsh_writer_next_inode_number(wr);
+
+  dt->addi.reg.start_block = 0;
+  dt->addi.reg.file_size = 0;
+  dt->addi.reg.sparse = 0;
+  dt->addi.reg.nlink = 1;
+  dt->addi.reg.fragment = UINT32_C(0xffffffff);
+  dt->addi.reg.offset = 0;
+  dt->addi.reg.xattr = UINT32_C(0xffffffff);
+
+  dt->addi.reg.blocks = NULL;
+  dt->addi.reg.nblocks = 0;
+  dt->addi.reg.blocks_space = 0;
+}
+
 void dirtree_dir_init(struct dirtree * const dt, struct sqsh_writer * const wr)
 {
   dt->inode_type = SQFS_INODE_TYPE_DIR;
@@ -65,11 +87,11 @@ void dirtree_dir_init(struct dirtree * const dt, struct sqsh_writer * const wr)
   dt->uid = 0;
   dt->gid = 0;
   dt->mtime = 0;
-  dt->inode_number = 0;
+  dt->inode_number = sqsh_writer_next_inode_number(wr);
+
   dt->addi.dir.nentries = 0;
   dt->addi.dir.space = 0;
   dt->addi.dir.entries = NULL;
-  dt->inode_number = sqsh_writer_next_inode_number(wr);
 }
 
 struct dirtree * dirtree_dir_new(struct sqsh_writer * const wr)
@@ -203,7 +225,7 @@ static void dirtree_write_inode(struct sqsh_writer * const writer, struct dirtre
           le32(buff + 28, parent_inode_number);
           le16(buff + 32, 0);
           le16(buff + 34, dt->addi.dir.dtable_start_offset);
-          le32(buff + 36, 0xffffffff);
+          le32(buff + 36, UINT32_C(0xffffffff));
 
           //le32(buff + 16, dt->addi.dir.dtable_start_block);
           //le32(buff + 20, dt->addi.dir.nlink);

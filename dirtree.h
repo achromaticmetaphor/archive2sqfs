@@ -38,24 +38,41 @@ struct dirtree_addi_dir
   uint16_t dtable_start_offset;
 };
 
+struct dirtree_addi_reg
+{
+  uint64_t start_block;
+  uint64_t file_size;
+  uint64_t sparse;
+  uint32_t nlink;
+  uint32_t fragment;
+  uint32_t offset;
+  uint32_t xattr;
+
+  uint32_t * blocks;
+  size_t nblocks;
+  size_t blocks_space;
+};
+
 union dirtree_addi
 {
   struct dirtree_addi_dir dir;
+  struct dirtree_addi_reg reg;
 };
 
 struct dirtree
 {
   uint16_t inode_type;
-  mode_t mode;
-  uid_t uid;
-  gid_t gid;
-  time_t mtime;
-  ino_t inode_number;
+  uint16_t mode;
+  uint32_t uid;
+  uint32_t gid;
+  uint32_t mtime;
+  uint32_t inode_number;
   uint64_t inode_address;
 
   union dirtree_addi addi;
 };
 
+void dirtree_reg_init(struct dirtree *, struct sqsh_writer *);
 void dirtree_dir_init(struct dirtree *, struct sqsh_writer *);
 struct dirtree * dirtree_dir_new(struct sqsh_writer *);
 struct dirtree * dirtree_get_subdir_for_path(struct sqsh_writer *, struct dirtree *, char const *);

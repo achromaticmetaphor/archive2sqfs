@@ -24,23 +24,23 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #define SQFS_INODE_TYPE_DIR 8
 #define SQFS_INODE_TYPE_REG 9
 
-#define SQFS_MAGIC 0x73717368
+#define SQFS_MAGIC UINT32_C(0x73717368)
 #define SQFS_MAJOR 4
 #define SQFS_MINOR 0
 
 #define SQFS_PAD_SIZE 0x1000
 
 #define SQFS_META_BLOCK_SIZE 0x2000
-#define SQFS_META_BLOCK_COMPRESSED_BIT 0x8000
+#define SQFS_META_BLOCK_COMPRESSED_BIT 0x8000u
 
 static inline uint16_t meta_address_offset(uint64_t const maddr)
 {
-  return maddr & 0xffff;
+  return maddr & 0xffffu;
 }
 
 static inline uint32_t meta_address_block(uint64_t const maddr)
 {
-  return (maddr >> 16) & 0xffffffff;
+  return (maddr >> 16) & UINT32_C(0xffffffff);
 }
 
 static inline uint64_t meta_address(uint32_t block, uint16_t offset)

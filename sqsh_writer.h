@@ -152,7 +152,7 @@ static inline void sqsh_writer_write_id_table(struct sqsh_writer * const wr)
 {
   // TODO
   unsigned char buff[14];
-  le16(buff, 0x8004);
+  le16(buff, 0x8004u);
   le32(buff + 2, 250);
   le64(buff + 6, wr->super.id_table_start);
   wr->super.id_table_start += 6;
