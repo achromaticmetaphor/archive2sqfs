@@ -69,8 +69,41 @@ int main(int argc, char * argv[])
       while (archive_read_next_header(archive, &entry) == ARCHIVE_OK)
         {
           char const * pathname = archive_entry_pathname(entry);
-          if (archive_entry_filetype(entry) == AE_IFDIR)
-            dirtree_get_subdir_for_path(&writer, root, pathname);
+          struct dirtree * dt = NULL;
+          mode_t const filetype = archive_entry_filetype(entry);
+          switch (filetype)
+            {
+              case AE_IFDIR:
+                dt = dirtree_get_subdir_for_path(&writer, root, pathname);
+                break;
+              case AE_IFREG:
+                dt = dirtree_put_reg_for_path(&writer, root, pathname);
+                {
+                  size_t const block_size = 1 << writer.super.block_log;
+                  unsigned char buff[block_size];
+                  int64_t i;
+                  for (i = archive_entry_size(entry); i >= block_size; i -= block_size)
+                    {
+                      archive_read_data(archive, buff, block_size); // TODO
+                      dirtree_reg_append(&writer, dt, buff, block_size);
+                    }
+                  if (i > 0)
+                    {
+                      archive_read_data(archive, buff, i); // TODO
+                      dirtree_reg_append(&writer, dt, buff, i);
+                    }
+                }
+                break;
+              default:;
+            }
+
+          if (dt != NULL)
+            {
+              dt->mode = archive_entry_perm(entry);
+              dt->uid = archive_entry_uid(entry);
+              dt->gid = archive_entry_gid(entry);
+              dt->mtime = archive_entry_mtime(entry);
+            }
         }
     }
 

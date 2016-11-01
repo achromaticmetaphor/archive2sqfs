@@ -79,5 +79,7 @@ struct dirtree * dirtree_get_subdir_for_path(struct sqsh_writer *, struct dirtre
 void dirtree_dump_tree(struct dirtree const *);
 void dirtree_write_tables(struct sqsh_writer *, struct dirtree *);
 void dirtree_free(struct dirtree *);
+struct dirtree * dirtree_put_reg_for_path(struct sqsh_writer *, struct dirtree *, char const *);
+void dirtree_reg_append(struct sqsh_writer *, struct dirtree *, unsigned char const *, size_t);
 
 #endif

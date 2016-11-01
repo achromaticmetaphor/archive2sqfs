@@ -101,6 +101,13 @@ struct dirtree * dirtree_dir_new(struct sqsh_writer * const wr)
   return dt;
 }
 
+struct dirtree * dirtree_reg_new(struct sqsh_writer * const wr)
+{
+  struct dirtree * const dt = g_malloc(sizeof(*dt));
+  dirtree_reg_init(dt, wr);
+  return dt;
+}
+
 void dirtree_free(struct dirtree * const dt)
 {
   if (dt->inode_type == SQFS_INODE_TYPE_DIR)
@@ -114,21 +121,42 @@ void dirtree_free(struct dirtree * const dt)
       g_free(dt->addi.dir.entries);
     }
 
+  else if (dt->inode_type == SQFS_INODE_TYPE_REG)
+    g_free(dt->addi.reg.blocks);
+
   g_free(dt);
+}
+
+static struct dirtree_entry * dirtree_get_child_entry(struct dirtree * const dt, char const * name)
+{
+  dirtree_dirop_prep(dt);
+  struct dirtree_entry const e = {name, NULL};
+  return lsearch(&e, dt->addi.dir.entries, &dt->addi.dir.nentries, sizeof(e), dirtree_entry_compare);
 }
 
 struct dirtree * dirtree_get_subdir(struct sqsh_writer * const wr, struct dirtree * const dt, char const * name)
 {
-  dirtree_dirop_prep(dt);
-  struct dirtree_entry const e = {name, NULL};
-  struct dirtree_entry * const subdir_entry = lsearch(&e, dt->addi.dir.entries, &dt->addi.dir.nentries, sizeof(e), dirtree_entry_compare);
+  struct dirtree_entry * const subdir_entry = dirtree_get_child_entry(dt, name);
   if (subdir_entry->inode == NULL)
     {
       subdir_entry->name = g_strdup(name);
       subdir_entry->inode = dirtree_dir_new(wr);
     }
+  // TODO
 
   return subdir_entry->inode;
+}
+
+struct dirtree * dirtree_put_reg(struct sqsh_writer * const wr, struct dirtree * const dt, char const * const name)
+{
+  struct dirtree_entry * const entry = dirtree_get_child_entry(dt, name);
+  if (entry->inode == NULL)
+    {
+      entry->name = g_strdup(name);
+      entry->inode = dirtree_reg_new(wr);
+    }
+  // TODO
+  return entry->inode;
 }
 
 struct dirtree * dirtree_get_subdir_for_path(struct sqsh_writer * const wr, struct dirtree * const dt, char const * const path)
@@ -234,6 +262,21 @@ static void dirtree_write_inode(struct sqsh_writer * const writer, struct dirtre
           //le32(buff + 28, parent_inode_number);
           dt->inode_address = mdw_put(&writer->inode_writer, buff, 40);
         }
+        break;
+      case SQFS_INODE_TYPE_REG:
+        {
+          unsigned char buff[56];
+          dirtree_inode_common(writer, dt, buff);
+          le64(buff + 16, dt->addi.reg.start_block);
+          le64(buff + 24, dt->addi.reg.file_size);
+          le64(buff + 32, dt->addi.reg.sparse);
+          le32(buff + 40, dt->addi.reg.nlink);
+          le32(buff + 44, dt->addi.reg.fragment);
+          le32(buff + 48, dt->addi.reg.offset);
+          le32(buff + 52, dt->addi.reg.xattr);
+          dt->inode_address = mdw_put(&writer->inode_writer, buff, 56);
+        }
+        break;
     }
 }
 
@@ -244,4 +287,25 @@ void dirtree_write_tables(struct sqsh_writer * const wr, struct dirtree * const 
   mdw_write_block(&wr->inode_writer);
   mdw_write_block(&wr->dentry_writer);
   sqsh_writer_write_tables(wr);
+}
+
+struct dirtree * dirtree_put_reg_for_path(struct sqsh_writer * const wr, struct dirtree * const root, char const * const path)
+{
+  char tmppath[strlen(path) + 1];
+  strcpy(tmppath, path);
+
+  char * const sep = strrchr(tmppath, '/');
+  char * const name = sep == NULL ? tmppath : sep + 1;
+  char * const parent = sep == NULL ? "/" : tmppath;
+
+  if (sep != NULL)
+    *sep = 0;
+
+  struct dirtree * parent_dt = dirtree_get_subdir_for_path(wr, root, parent);
+  return dirtree_put_reg(wr, parent_dt, name);
+}
+
+void dirtree_reg_append(struct sqsh_writer * const wr, struct dirtree * const dt, unsigned char const * const buff, size_t const len)
+{
+  // TODO
 }
