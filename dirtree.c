@@ -336,9 +336,17 @@ void dirtree_reg_flush(struct sqsh_writer * const wr, struct dirtree * const dt)
   if (wr->current_pos == 0)
     return;
 
+  unsigned long int zsize = compressBound(wr->current_pos);
+  unsigned char zbuff[zsize];
+  compress2(zbuff, &zsize, wr->current_block, wr->current_pos, 9);
+
+  _Bool const compressed = zsize < wr->current_pos;
+  unsigned char * const block = compressed ? zbuff : wr->current_block;
+  size_t const size = compressed ? zsize : wr->current_pos;
+
   long int const tell = ftell(wr->outfile);
-  fwrite(wr->current_block, 1, wr->current_pos, wr->outfile);
-  dirtree_reg_add_block(dt, wr->current_pos | SQFS_BLOCK_COMPRESSED_BIT, tell);
+  fwrite(block, 1, size, wr->outfile);
+  dirtree_reg_add_block(dt, compressed ? size : (size | SQFS_BLOCK_COMPRESSED_BIT), tell);
   wr->current_pos = 0;
 }
 
