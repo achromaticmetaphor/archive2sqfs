@@ -24,6 +24,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <string.h>
 
 #include <glib.h>
+#include <zlib.h>
 
 #include "sqsh_defs.h"
 
@@ -67,8 +68,16 @@ static inline void mdw_write_block_compressed(struct mdw * const mdw, size_t con
 
 static inline void mdw_write_block(struct mdw * const mdw)
 {
-  unsigned char const size[2] = {SQFS_META_BLOCK_SIZE & 0xff, ((SQFS_META_BLOCK_SIZE >> 8) & 0xff) | 0x80};
-  mdw_write_block_compressed(mdw, SQFS_META_BLOCK_SIZE, mdw->buff, size);
+  unsigned long int zsize = compressBound(SQFS_META_BLOCK_SIZE);
+  unsigned char zbuff[zsize];
+  compress2(zbuff, &zsize, mdw->buff, SQFS_META_BLOCK_SIZE, 9);
+
+  _Bool const compressed = zsize < SQFS_META_BLOCK_SIZE;
+  unsigned char * const buff = compressed ? zbuff : mdw->buff;
+  size_t const size = compressed ? zsize : SQFS_META_BLOCK_SIZE;
+
+  unsigned char const sizeb[2] = {size & 0xff, ((size >> 8) & 0xff) | (compressed ? 0 : 0x80)};
+  mdw_write_block_compressed(mdw, size, buff, sizeb);
   mdw->buff_pos = 0;
 }
 
