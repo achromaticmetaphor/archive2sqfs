@@ -74,6 +74,7 @@ static inline void mdw_write_block(struct mdw * const mdw)
 
 static inline uint64_t mdw_put(struct mdw * const mdw, unsigned char const * const b, size_t const len)
 {
+  // TODO WHILE
   uint64_t const addr = meta_address(mdw->block, mdw->buff_pos);
   size_t const remaining = SQFS_META_BLOCK_SIZE - mdw->buff_pos;
   size_t const added = len > remaining ? remaining : len;
@@ -84,7 +85,7 @@ static inline uint64_t mdw_put(struct mdw * const mdw, unsigned char const * con
     {
       mdw_write_block(mdw);
       size_t const left = len - added;
-      memcpy(mdw->buff, b + remaining, left);
+      memcpy(mdw->buff, b + added, left);
       mdw->buff_pos = left;
     }
 

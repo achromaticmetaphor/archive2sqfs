@@ -50,7 +50,7 @@ int main(int argc, char * argv[])
     }
 
   struct sqsh_writer writer;
-  _Bool const writer_failed = sqsh_writer_init(&writer, argv[1]);
+  _Bool const writer_failed = sqsh_writer_init(&writer, argv[1], SQFS_BLOCK_LOG_DEFAULT);
   struct dirtree * const root = writer_failed ? NULL : dirtree_dir_new(&writer);
 
   FILE * const infile = root == NULL ? NULL : argc == 3 ? fopen(argv[2], "rb") : stdin;
@@ -79,7 +79,7 @@ int main(int argc, char * argv[])
               case AE_IFREG:
                 dt = dirtree_put_reg_for_path(&writer, root, pathname);
                 {
-                  size_t const block_size = 1 << writer.super.block_log;
+                  size_t const block_size = (size_t) 1 << writer.super.block_log;
                   unsigned char buff[block_size];
                   int64_t i;
                   for (i = archive_entry_size(entry); i >= block_size; i -= block_size)
@@ -92,6 +92,7 @@ int main(int argc, char * argv[])
                       archive_read_data(archive, buff, i); // TODO
                       dirtree_reg_append(&writer, dt, buff, i);
                     }
+                  dirtree_reg_flush(&writer, dt);
                 }
                 break;
               default:;

@@ -185,6 +185,8 @@ static void dirtree_dump_with_prefix(struct dirtree const * const dt, char const
           sprintf(prefix_, "%s/%s", prefix, entry->name);
           dirtree_dump_with_prefix(entry->inode, prefix_);
         }
+      if (entry->inode->inode_type == SQFS_INODE_TYPE_REG)
+        printf("\t%s\n", entry->name);
     }
 }
 
@@ -234,6 +236,14 @@ static inline void dirtree_inode_common(struct sqsh_writer * const wr, struct di
   le32(out + 12, dt->inode_number);
 }
 
+static void dirtree_reg_write_inode_blocks(struct sqsh_writer * const wr, struct dirtree * const dt)
+{
+  unsigned char buff[dt->addi.reg.nblocks * 4];
+  for (size_t i = 0; i < dt->addi.reg.nblocks; i++)
+    le32(buff + i * 4, dt->addi.reg.blocks[i]);
+  mdw_put(&wr->inode_writer, buff, dt->addi.reg.nblocks * 4);
+}
+
 static void dirtree_write_inode(struct sqsh_writer * const writer, struct dirtree * const dt, ino_t const parent_inode_number)
 {
   if (dt->inode_type == SQFS_INODE_TYPE_DIR)
@@ -275,6 +285,7 @@ static void dirtree_write_inode(struct sqsh_writer * const writer, struct dirtre
           le32(buff + 48, dt->addi.reg.offset);
           le32(buff + 52, dt->addi.reg.xattr);
           dt->inode_address = mdw_put(&writer->inode_writer, buff, 56);
+          dirtree_reg_write_inode_blocks(writer, dt);
         }
         break;
     }
@@ -305,7 +316,47 @@ struct dirtree * dirtree_put_reg_for_path(struct sqsh_writer * const wr, struct 
   return dirtree_put_reg(wr, parent_dt, name);
 }
 
+static void dirtree_reg_add_block(struct dirtree * const dt, size_t size, long int const start_block)
+{
+  assert(dt->inode_type == SQFS_INODE_TYPE_REG);
+  if (dt->addi.reg.nblocks == dt->addi.reg.blocks_space)
+    {
+      dt->addi.reg.blocks_space = dt->addi.reg.blocks_space * 2 + 1;
+      dt->addi.reg.blocks = g_realloc(dt->addi.reg.blocks, sizeof(*dt->addi.reg.blocks) * dt->addi.reg.blocks_space);
+    }
+
+  dt->addi.reg.blocks[dt->addi.reg.nblocks] = size;
+  if (dt->addi.reg.nblocks == 0)
+    dt->addi.reg.start_block = start_block;
+  dt->addi.reg.nblocks++;
+}
+
+void dirtree_reg_flush(struct sqsh_writer * const wr, struct dirtree * const dt)
+{
+  if (wr->current_pos == 0)
+    return;
+
+  long int const tell = ftell(wr->outfile);
+  fwrite(wr->current_block, 1, wr->current_pos, wr->outfile);
+  dirtree_reg_add_block(dt, wr->current_pos | SQFS_BLOCK_COMPRESSED_BIT, tell);
+  wr->current_pos = 0;
+}
+
 void dirtree_reg_append(struct sqsh_writer * const wr, struct dirtree * const dt, unsigned char const * const buff, size_t const len)
 {
-  // TODO
+  // TODO WHILE len > block_size
+  size_t const block_size = (size_t) 1 << wr->super.block_log;
+  size_t const remaining = block_size - wr->current_pos;
+  size_t const added = len > remaining ? remaining : len;
+  dt->addi.reg.file_size += len;
+
+  memcpy(wr->current_block + wr->current_pos, buff, added);
+  wr->current_pos += added;
+  if (wr->current_pos == block_size)
+    {
+      dirtree_reg_flush(wr, dt);
+      size_t const left = len - added;
+      memcpy(wr->current_block, buff + added, left);
+      wr->current_pos = left;
+    }
 }

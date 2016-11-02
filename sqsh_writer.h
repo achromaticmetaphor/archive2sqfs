@@ -26,6 +26,8 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "le.h"
 #include "mdw.h"
 
+#define SQFS_BLOCK_LOG_DEFAULT 17
+
 static inline void fround_to(FILE * const f, long int const block)
 {
   long int const tell = ftell(f);
@@ -67,13 +69,15 @@ struct sqsh_writer
   struct mdw dentry_writer;
   struct mdw inode_writer;
   FILE * outfile;
+  unsigned char * current_block;
+  size_t current_pos;
 };
 
-static inline void sqfs_super_init(struct sqfs_super * const super)
+static inline void sqfs_super_init(struct sqfs_super * const super, int const block_log)
 {
   super->fragments = 0;
   super->compression = 1;
-  super->block_log = 17;
+  super->block_log = block_log;
   super->flags = 1 << 4;
   super->ids = 1;
   super->root_inode = 0;
@@ -86,13 +90,15 @@ static inline void sqfs_super_init(struct sqfs_super * const super)
   super->lookup_table_start = UINT64_C(0xffffffffffffffff);
 }
 
-static inline _Bool sqsh_writer_init(struct sqsh_writer * const wr, char const * const path)
+static inline _Bool sqsh_writer_init(struct sqsh_writer * const wr, char const * const path, int const block_log)
 {
   wr->next_inode = 1;
   mdw_init(&wr->dentry_writer);
   mdw_init(&wr->inode_writer);
 
-  sqfs_super_init(&wr->super);
+  sqfs_super_init(&wr->super, block_log);
+  wr->current_block = g_malloc(1 << block_log);
+  wr->current_pos = 0;
 
   wr->outfile = fopen(path, "wb");
   return wr->outfile == NULL || fseek(wr->outfile, 96L, SEEK_SET);

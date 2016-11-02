@@ -32,6 +32,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #define SQFS_META_BLOCK_SIZE 0x2000
 #define SQFS_META_BLOCK_COMPRESSED_BIT 0x8000u
+#define SQFS_BLOCK_COMPRESSED_BIT UINT32_C(0x1000000)
 
 static inline uint16_t meta_address_offset(uint64_t const maddr)
 {
