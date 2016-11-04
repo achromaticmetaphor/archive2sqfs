@@ -55,7 +55,7 @@ static inline void mdw_write_block_compressed(struct mdw * const mdw, size_t con
   if (mdw->block + block_len + 2 > mdw->table_len)
     {
       do
-        mdw->table_len = mdw->table_len * 2 + 1;
+        mdw->table_len += 0x100000;
       while (mdw->block + block_len + 2 > mdw->table_len);
       mdw->table = g_realloc(mdw->table, mdw->table_len);
     }
@@ -66,19 +66,26 @@ static inline void mdw_write_block_compressed(struct mdw * const mdw, size_t con
   mdw->block += block_len + 2;
 }
 
-static inline void mdw_write_block(struct mdw * const mdw)
+static inline void mdw_write_block_no_pad(struct mdw * const mdw)
 {
-  unsigned long int zsize = compressBound(SQFS_META_BLOCK_SIZE);
+  unsigned long int zsize = compressBound(mdw->buff_pos);
   unsigned char zbuff[zsize];
-  compress2(zbuff, &zsize, mdw->buff, SQFS_META_BLOCK_SIZE, 9);
+  compress2(zbuff, &zsize, mdw->buff, mdw->buff_pos, 9);
 
-  _Bool const compressed = zsize < SQFS_META_BLOCK_SIZE;
+  _Bool const compressed = zsize < mdw->buff_pos;
   unsigned char * const buff = compressed ? zbuff : mdw->buff;
-  size_t const size = compressed ? zsize : SQFS_META_BLOCK_SIZE;
+  size_t const size = compressed ? zsize : mdw->buff_pos;
 
   unsigned char const sizeb[2] = {size & 0xff, ((size >> 8) & 0xff) | (compressed ? 0 : 0x80)};
   mdw_write_block_compressed(mdw, size, buff, sizeb);
   mdw->buff_pos = 0;
+}
+
+static inline void mdw_write_block(struct mdw * const mdw)
+{
+  memset(mdw->buff + mdw->buff_pos, 0, SQFS_META_BLOCK_SIZE - mdw->buff_pos);
+  mdw->buff_pos = SQFS_META_BLOCK_SIZE;
+  mdw_write_block_no_pad(mdw);
 }
 
 static inline uint64_t mdw_put(struct mdw * const mdw, unsigned char const * const b, size_t const len)

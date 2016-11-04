@@ -35,6 +35,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <zlib.h>
 
 #include "dirtree.h"
+#include "dw.h"
 #include "le.h"
 #include "mdw.h"
 #include "sqsh_defs.h"
@@ -53,7 +54,7 @@ static void dirtree_dirop_prep(struct dirtree * const dt)
 
   if (dt->addi.dir.nentries == dt->addi.dir.space)
     {
-      dt->addi.dir.space = 2 * dt->addi.dir.space + 1;
+      dt->addi.dir.space += 0x10;
       dt->addi.dir.entries = g_realloc(dt->addi.dir.entries, sizeof(*dt->addi.dir.entries) * dt->addi.dir.space);
     }
 }
@@ -293,6 +294,7 @@ static void dirtree_write_inode(struct sqsh_writer * const writer, struct dirtre
 
 void dirtree_write_tables(struct sqsh_writer * const wr, struct dirtree * const dt)
 {
+  sqsh_writer_flush_fragment(wr);
   dirtree_write_inode(wr, dt, wr->next_inode);
   wr->super.root_inode = dt->inode_address;
   mdw_write_block(&wr->inode_writer);
@@ -321,7 +323,7 @@ static void dirtree_reg_add_block(struct dirtree * const dt, size_t size, long i
   assert(dt->inode_type == SQFS_INODE_TYPE_REG);
   if (dt->addi.reg.nblocks == dt->addi.reg.blocks_space)
     {
-      dt->addi.reg.blocks_space = dt->addi.reg.blocks_space * 2 + 1;
+      dt->addi.reg.blocks_space += 4;
       dt->addi.reg.blocks = g_realloc(dt->addi.reg.blocks, sizeof(*dt->addi.reg.blocks) * dt->addi.reg.blocks_space);
     }
 
@@ -336,17 +338,17 @@ void dirtree_reg_flush(struct sqsh_writer * const wr, struct dirtree * const dt)
   if (wr->current_pos == 0)
     return;
 
-  unsigned long int zsize = compressBound(wr->current_pos);
-  unsigned char zbuff[zsize];
-  compress2(zbuff, &zsize, wr->current_block, wr->current_pos, 9);
-
-  _Bool const compressed = zsize < wr->current_pos;
-  unsigned char * const block = compressed ? zbuff : wr->current_block;
-  size_t const size = compressed ? zsize : wr->current_pos;
-
-  long int const tell = ftell(wr->outfile);
-  fwrite(block, 1, size, wr->outfile);
-  dirtree_reg_add_block(dt, compressed ? size : (size | SQFS_BLOCK_COMPRESSED_BIT), tell);
+  if (wr->current_pos < ((size_t) 1 << wr->super.block_log) && dt->addi.reg.nblocks == 0)
+    {
+      dt->addi.reg.offset = sqsh_writer_put_fragment(wr, wr->current_block, wr->current_pos);
+      dt->addi.reg.fragment = wr->super.fragments;
+    }
+  else
+    {
+      long int const tell = ftell(wr->outfile);
+      uint32_t const bsize = dw_write_data(wr->current_block, wr->current_pos, wr->outfile);
+      dirtree_reg_add_block(dt, bsize, tell);
+    }
   wr->current_pos = 0;
 }
 
