@@ -23,6 +23,11 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #define SQFS_INODE_TYPE_DIR 8
 #define SQFS_INODE_TYPE_REG 9
+#define SQFS_INODE_TYPE_SYM 10
+#define SQFS_INODE_TYPE_BLK 11
+#define SQFS_INODE_TYPE_CHR 12
+#define SQFS_INODE_TYPE_PIPE 13
+#define SQFS_INODE_TYPE_SOCK 14
 
 #define SQFS_MAGIC UINT32_C(0x73717368)
 #define SQFS_MAJOR 4

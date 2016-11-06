@@ -72,8 +72,10 @@ struct dirtree
   union dirtree_addi addi;
 };
 
+int dirtree_entry_compare(void const *, void const *);
 void dirtree_reg_init(struct dirtree *, struct sqsh_writer *);
 void dirtree_dir_init(struct dirtree *, struct sqsh_writer *);
+struct dirtree * dirtree_reg_new(struct sqsh_writer *);
 struct dirtree * dirtree_dir_new(struct sqsh_writer *);
 struct dirtree * dirtree_get_subdir_for_path(struct sqsh_writer *, struct dirtree *, char const *);
 void dirtree_dump_tree(struct dirtree const *);

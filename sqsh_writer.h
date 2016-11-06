@@ -169,7 +169,6 @@ static inline void sqsh_writer_flush_fragment(struct sqsh_writer * const wr)
 static inline size_t sqsh_writer_put_fragment(struct sqsh_writer * const wr, unsigned char const * const buff, size_t const len)
 {
   size_t const block_size = (size_t) 1 << wr->super.block_log;
-  assert(len < block_size);
 
   if (wr->fragment_pos + len > block_size)
     sqsh_writer_flush_fragment(wr);
