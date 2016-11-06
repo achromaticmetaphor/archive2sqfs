@@ -45,7 +45,7 @@ struct sqfs_super
   uint16_t compression;
   uint16_t block_log;
   uint16_t flags;
-  uint16_t ids;
+  //  uint16_t ids;
   //  uint16_t major;
   //  uint16_t minor;
 

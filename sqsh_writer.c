@@ -43,8 +43,7 @@ static void sqfs_super_init(struct sqfs_super * const super, int const block_log
   super->fragments = 0;
   super->compression = 1;
   super->block_log = block_log;
-  super->flags = 1 << 4;
-  super->ids = 1;
+  super->flags = 0;
   super->root_inode = 0;
   super->bytes_used = 0;
   super->id_table_start = 0;
@@ -144,7 +143,7 @@ void sqsh_writer_write_header(struct sqsh_writer * const writer)
   le16(header + 20, writer->super.compression);
   le16(header + 22, writer->super.block_log);
   le16(header + 24, writer->super.flags);
-  le16(header + 26, writer->super.ids);
+  le16(header + 26, writer->nids);
   le16(header + 28, SQFS_MAJOR);
   le16(header + 30, SQFS_MINOR);
 
