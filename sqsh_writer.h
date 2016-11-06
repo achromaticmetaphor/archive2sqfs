@@ -20,6 +20,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #define LSL_SQSH_WRITER_H
 
 #include <stdint.h>
+#include <stdio.h>
 
 #include <search.h>
 

@@ -17,7 +17,7 @@ add_definitions(${LIBARCHIVE_CFLAGS_OTHER})
 add_definitions(${GLIB_CFLAGS_OTHER})
 add_definitions(${ZLIB_CFLAGS_OTHER})
 
-add_executable(archive2sqfs archive2sqfs.c dirtree.c dirtree_dir.c dirtree_reg.c dirtree_write.c dw.c sqsh_writer.c)
+add_executable(archive2sqfs archive2sqfs.c dirtree.c dirtree_dir.c dirtree_reg.c dirtree_write.c dw.c mdw.c sqsh_writer.c)
 
 target_link_libraries(archive2sqfs ${LIBARCHIVE_LIBRARIES})
 target_link_libraries(archive2sqfs ${GLIB_LIBRARIES})
