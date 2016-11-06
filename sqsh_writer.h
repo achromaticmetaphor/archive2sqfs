@@ -23,6 +23,8 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdio.h>
 #include <string.h>
 
+#include <search.h>
+
 #include "dw.h"
 #include "le.h"
 #include "mdw.h"
@@ -178,9 +180,16 @@ static inline size_t sqsh_writer_put_fragment(struct sqsh_writer * const wr, uns
   return offset;
 }
 
+static int u32cmp(void const * va, void const * vb)
+{
+  uint32_t const a = *(uint32_t const *) va;
+  uint32_t const b = *(uint32_t const *) vb;
+  return a < b ? -1 : a > b;
+}
+
 static inline uint16_t sqsh_writer_id_lookup(struct sqsh_writer * const wr, uint32_t const id)
 {
-  return 0; // TODO
+  return (uint32_t *) lsearch(&id, wr->ids, &wr->nids, sizeof(id), u32cmp) - wr->ids;
 }
 
 static inline void sqsh_writer_write_header(struct sqsh_writer * const writer)
@@ -216,13 +225,28 @@ static inline void sqsh_writer_write_header(struct sqsh_writer * const writer)
 
 static inline void sqsh_writer_write_id_table(struct sqsh_writer * const wr)
 {
-  // TODO
-  unsigned char buff[14];
-  le16(buff, 0x8004u);
-  le32(buff + 2, 250);
-  le64(buff + 6, wr->super.id_table_start);
-  wr->super.id_table_start += 6;
-  fwrite(buff, 1, 14, wr->outfile);
+  size_t const index_count = (wr->nids >> 11) + ((wr->nids & 0x7ff) != 0);
+  unsigned char indices[index_count * 8];
+  struct mdw id_writer;
+  mdw_init(&id_writer);
+  size_t index = 0;
+
+  for (size_t i = 0; i < wr->nids; i++)
+    {
+      unsigned char buff[4];
+      le32(buff, wr->ids[i]);
+      uint64_t const maddr = mdw_put(&id_writer, buff, 4);
+      if ((i & 0x7ff) == 0)
+        le64(indices + index++ * 8, wr->super.id_table_start + meta_address_block(maddr));
+    }
+
+  if (wr->nids & 0x7ff)
+    mdw_write_block_no_pad(&id_writer);
+  mdw_out(&id_writer, wr->outfile);
+  mdw_destroy(&id_writer);
+
+  wr->super.id_table_start = ftell(wr->outfile);
+  fwrite(indices, 1, index_count * 8, wr->outfile);
 }
 
 static inline void sqsh_writer_write_fragment_table(struct sqsh_writer * const wr)
