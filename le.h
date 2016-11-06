@@ -35,8 +35,8 @@ static inline void le32(uint8_t * const out, uint32_t const n)
 
 static inline void le64(uint8_t * const out, uint64_t const n)
 {
-  le32(out, n & UINT32_C(0xffffffff));
-  le32(out + 4, (n >> 32) & UINT32_C(0xffffffff));
+  le32(out, n & 0xffffffffu);
+  le32(out + 4, (n >> 32) & 0xffffffffu);
 }
 
 static inline uint16_t le16_r(uint8_t const * const in)

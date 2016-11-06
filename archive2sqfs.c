@@ -18,26 +18,19 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #define _POSIX_C_SOURCE 200809L
 
-#include <assert.h>
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <dirent.h>
-#include <search.h>
 #include <unistd.h>
 
 #include <archive.h>
 #include <archive_entry.h>
-#include <glib.h>
-#include <zlib.h>
 
 #include "dirtree.h"
-#include "le.h"
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
 

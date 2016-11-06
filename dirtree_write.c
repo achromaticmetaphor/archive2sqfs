@@ -22,8 +22,6 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <stddef.h>
 #include <string.h>
 
-#include <glib.h>
-
 #include "dirtree.h"
 #include "le.h"
 #include "mdw.h"
@@ -78,7 +76,7 @@ static void dirtree_reg_write_inode_blocks(struct sqsh_writer * const wr, struct
   mdw_put(&wr->inode_writer, buff, dt->addi.reg.nblocks * 4);
 }
 
-static void dirtree_write_inode(struct sqsh_writer * const writer, struct dirtree * const dt, ino_t const parent_inode_number)
+static void dirtree_write_inode(struct sqsh_writer * const writer, struct dirtree * const dt, uint32_t const parent_inode_number)
 {
   if (dt->inode_type == SQFS_INODE_TYPE_DIR)
     for (size_t i = 0; i < dt->addi.dir.nentries; i++)
@@ -97,7 +95,7 @@ static void dirtree_write_inode(struct sqsh_writer * const writer, struct dirtre
           le32(buff + 28, parent_inode_number);
           le16(buff + 32, 0);
           le16(buff + 34, dt->addi.dir.dtable_start_offset);
-          le32(buff + 36, UINT32_C(0xffffffff));
+          le32(buff + 36, 0xffffffffu);
 
           //le32(buff + 16, dt->addi.dir.dtable_start_block);
           //le32(buff + 20, dt->addi.dir.nlink);

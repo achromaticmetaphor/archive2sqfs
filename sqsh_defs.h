@@ -46,12 +46,17 @@ static inline uint16_t meta_address_offset(uint64_t const maddr)
 
 static inline uint32_t meta_address_block(uint64_t const maddr)
 {
-  return (maddr >> 16) & UINT32_C(0xffffffff);
+  return (maddr >> 16) & 0xffffffffu;
 }
 
-static inline uint64_t meta_address(uint32_t block, uint16_t offset)
+static inline uint64_t meta_address(uint32_t const block, uint16_t const offset)
 {
   return (((uint64_t) block) << 16) | offset;
+}
+
+static inline uint64_t meta_address_from_error(uint16_t const error)
+{
+  return (uint64_t) error << 48;
 }
 
 static inline uint16_t meta_address_error(uint64_t const maddr)

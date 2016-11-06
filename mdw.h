@@ -23,8 +23,6 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <glib.h>
-
 #include "sqsh_defs.h"
 
 struct mdw
@@ -46,16 +44,16 @@ static inline void mdw_init(struct mdw * const mdw)
 
 static inline void mdw_destroy(struct mdw * const mdw)
 {
-  g_free(mdw->table);
+  free(mdw->table);
 }
 
-static inline void mdw_out(struct mdw * const mdw, FILE * const out)
+static inline _Bool mdw_out(struct mdw * const mdw, FILE * const out)
 {
-  fwrite(mdw->table, 1, mdw->block, out);
+  return fwrite(mdw->table, 1, mdw->block, out) == mdw->block;
 }
 
-void mdw_write_block_no_pad(struct mdw *);
-void mdw_write_block(struct mdw *);
+_Bool mdw_write_block_no_pad(struct mdw *);
+_Bool mdw_write_block(struct mdw *);
 uint64_t mdw_put(struct mdw *, unsigned char const *, size_t);
 
 #endif

@@ -18,11 +18,10 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #define _POSIX_C_SOURCE 200809L
 
+#include <errno.h>
 #include <inttypes.h>
 #include <stddef.h>
 #include <string.h>
-
-#include <glib.h>
 
 #include "dirtree.h"
 #include "dw.h"
@@ -42,9 +41,9 @@ void dirtree_reg_init(struct dirtree * const dt, struct sqsh_writer * const wr)
   dt->addi.reg.file_size = 0;
   dt->addi.reg.sparse = 0;
   dt->addi.reg.nlink = 1;
-  dt->addi.reg.fragment = UINT32_C(0xffffffff);
+  dt->addi.reg.fragment = 0xffffffffu;
   dt->addi.reg.offset = 0;
-  dt->addi.reg.xattr = UINT32_C(0xffffffff);
+  dt->addi.reg.xattr = 0xffffffffu;
 
   dt->addi.reg.blocks = NULL;
   dt->addi.reg.nblocks = 0;
@@ -53,23 +52,31 @@ void dirtree_reg_init(struct dirtree * const dt, struct sqsh_writer * const wr)
 
 struct dirtree * dirtree_reg_new(struct sqsh_writer * const wr)
 {
-  struct dirtree * const dt = g_malloc(sizeof(*dt));
-  dirtree_reg_init(dt, wr);
+  struct dirtree * const dt = malloc(sizeof(*dt));
+  if (dt != NULL)
+    dirtree_reg_init(dt, wr);
   return dt;
 }
 
-static void dirtree_reg_add_block(struct dirtree * const dt, size_t size, long int const start_block)
+static int dirtree_reg_add_block(struct dirtree * const dt, size_t size, long int const start_block)
 {
   if (dt->addi.reg.nblocks == dt->addi.reg.blocks_space)
     {
-      dt->addi.reg.blocks_space += 4;
-      dt->addi.reg.blocks = g_realloc(dt->addi.reg.blocks, sizeof(*dt->addi.reg.blocks) * dt->addi.reg.blocks_space);
+      size_t const space = dt->addi.reg.blocks_space + 4;
+      uint32_t * const blocks = realloc(dt->addi.reg.blocks, sizeof(*blocks) * space);
+      if (blocks == NULL)
+        return ENOMEM;
+
+      dt->addi.reg.blocks = blocks;
+      dt->addi.reg.blocks_space = space;
     }
 
   dt->addi.reg.blocks[dt->addi.reg.nblocks] = size;
   if (dt->addi.reg.nblocks == 0)
     dt->addi.reg.start_block = start_block;
   dt->addi.reg.nblocks++;
+
+  return 0;
 }
 
 void dirtree_reg_flush(struct sqsh_writer * const wr, struct dirtree * const dt)

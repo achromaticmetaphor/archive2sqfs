@@ -77,8 +77,8 @@ struct sqsh_writer
 };
 
 int u32cmp(void const *, void const *);
-_Bool sqsh_writer_init(struct sqsh_writer *, char const *, int);
-void sqsh_writer_destroy(struct sqsh_writer *);
+int sqsh_writer_init(struct sqsh_writer *, char const *, int);
+int sqsh_writer_destroy(struct sqsh_writer *);
 void sqsh_writer_write_header(struct sqsh_writer *);
 size_t sqsh_writer_put_fragment(struct sqsh_writer *, unsigned char const *, size_t);
 void sqsh_writer_flush_fragment(struct sqsh_writer *);

@@ -18,24 +18,29 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #define _POSIX_C_SOURCE 200809L
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <search.h>
 
-#include <glib.h>
-
 #include "dirtree.h"
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
 
-static void dirtree_dirop_prep(struct dirtree * const dt)
+static int dirtree_dirop_prep(struct dirtree * const dt)
 {
   if (dt->addi.dir.nentries == dt->addi.dir.space)
     {
-      dt->addi.dir.space += 0x10;
-      dt->addi.dir.entries = g_realloc(dt->addi.dir.entries, sizeof(*dt->addi.dir.entries) * dt->addi.dir.space);
+      size_t const space = dt->addi.dir.space + 0x10;
+      struct dirtree_entry * const entries = realloc(dt->addi.dir.entries, sizeof(*entries) * space);
+      if (entries == NULL)
+        return ENOMEM;
+
+      dt->addi.dir.entries = entries;
+      dt->addi.dir.space = space;
     }
+  return 0;
 }
 
 void dirtree_dir_init(struct dirtree * const dt, struct sqsh_writer * const wr)
@@ -54,8 +59,9 @@ void dirtree_dir_init(struct dirtree * const dt, struct sqsh_writer * const wr)
 
 struct dirtree * dirtree_dir_new(struct sqsh_writer * const wr)
 {
-  struct dirtree * const dt = g_malloc(sizeof(*dt));
-  dirtree_dir_init(dt, wr);
+  struct dirtree * const dt = malloc(sizeof(*dt));
+  if (dt != NULL)
+    dirtree_dir_init(dt, wr);
   return dt;
 }
 
@@ -71,7 +77,7 @@ struct dirtree * dirtree_get_subdir(struct sqsh_writer * const wr, struct dirtre
   struct dirtree_entry * const subdir_entry = dirtree_get_child_entry(dt, name);
   if (subdir_entry->inode == NULL)
     {
-      subdir_entry->name = g_strdup(name);
+      subdir_entry->name = strdup(name);
       subdir_entry->inode = dirtree_dir_new(wr);
     }
   // TODO
@@ -84,7 +90,7 @@ struct dirtree * dirtree_put_reg(struct sqsh_writer * const wr, struct dirtree *
   struct dirtree_entry * const entry = dirtree_get_child_entry(dt, name);
   if (entry->inode == NULL)
     {
-      entry->name = g_strdup(name);
+      entry->name = strdup(name);
       entry->inode = dirtree_reg_new(wr);
     }
   // TODO

@@ -18,6 +18,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #define _POSIX_C_SOURCE 200809L
 
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -29,13 +30,13 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "mdw.h"
 #include "sqsh_writer.h"
 
-static void fround_to(FILE * const f, long int const block)
+static _Bool fround_to(FILE * const f, long int const block)
 {
   long int const tell = ftell(f);
   long int const fill = block - (tell % block);
   unsigned char buff[fill];
   memset(buff, 0, fill);
-  fwrite(buff, 1, fill, f);
+  return fwrite(buff, 1, fill, f) == fill;
 }
 
 static void sqfs_super_init(struct sqfs_super * const super, int const block_log)
@@ -47,52 +48,69 @@ static void sqfs_super_init(struct sqfs_super * const super, int const block_log
   super->root_inode = 0;
   super->bytes_used = 0;
   super->id_table_start = 0;
-  super->xattr_table_start = UINT64_C(0xffffffffffffffff);
+  super->xattr_table_start = 0xffffffffffffffffu;
   super->inode_table_start = 0;
   super->directory_table_start = 0;
   super->fragment_table_start = 0;
-  super->lookup_table_start = UINT64_C(0xffffffffffffffff);
+  super->lookup_table_start = 0xffffffffffffffffu;
 }
 
-_Bool sqsh_writer_init(struct sqsh_writer * const wr, char const * const path, int const block_log)
+static _Bool sqsh_writer_free(struct sqsh_writer * const wr)
 {
+  free(wr->current_block);
+  free(wr->ids);
+}
+
+static _Bool sqsh_writer_alloc(struct sqsh_writer * const wr, int const block_log)
+{
+  wr->current_block = malloc((size_t) 2 << block_log);
+  wr->current_fragment = wr->current_block == NULL ? NULL : wr->current_block + ((size_t) 1 << block_log);
+  wr->ids = wr->current_fragment == NULL ? NULL : malloc(sizeof(*wr->ids) * 0x10000);
+
+  if (wr->current_fragment == NULL)
+    return sqsh_writer_free(wr), 1;
+  return 0;
+}
+
+int sqsh_writer_init(struct sqsh_writer * const wr, char const * const path, int const block_log)
+{
+  if (sqsh_writer_alloc(wr, block_log))
+    return 1;
+
   wr->next_inode = 1;
   mdw_init(&wr->dentry_writer);
   mdw_init(&wr->inode_writer);
 
   sqfs_super_init(&wr->super, block_log);
-  wr->current_block = g_malloc((size_t) 2 << block_log);
   wr->current_pos = 0;
-  wr->current_fragment = wr->current_block + ((size_t) 1 << block_log);
   wr->fragment_pos = 0;
-
   wr->fragments = NULL;
   wr->fragment_space = 0;
-  wr->ids = g_malloc(sizeof(*wr->ids) * 0x10000);
   wr->nids = 0;
 
   wr->outfile = fopen(path, "wb");
   return wr->outfile == NULL || fseek(wr->outfile, 96L, SEEK_SET);
 }
 
-void sqsh_writer_destroy(struct sqsh_writer * const wr)
+int sqsh_writer_destroy(struct sqsh_writer * const wr)
 {
-  if (wr->outfile != NULL)
-    fclose(wr->outfile);
-
-  g_free(wr->current_block);
-  g_free(wr->ids);
-
+  sqsh_writer_free(wr);
   mdw_destroy(&wr->inode_writer);
   mdw_destroy(&wr->dentry_writer);
+  return wr->outfile == NULL || fclose(wr->outfile);
 }
 
-static void sqsh_writer_append_fragment(struct sqsh_writer * const wr, uint32_t const size, uint64_t const start_block)
+static int sqsh_writer_append_fragment(struct sqsh_writer * const wr, uint32_t const size, uint64_t const start_block)
 {
   if (wr->super.fragments == wr->fragment_space)
     {
-      wr->fragment_space += 0x100;
-      wr->fragments = g_realloc(wr->fragments, sizeof(*wr->fragments) * wr->fragment_space);
+      size_t const space = wr->fragment_space + 0x100;
+      struct fragment_entry * const fragments = realloc(wr->fragments, sizeof(*fragments) * space);
+      if (fragments == NULL)
+        return ENOMEM;
+
+      wr->fragment_space = space;
+      wr->fragments = fragments;
     }
 
   wr->fragments[wr->super.fragments].start_block = start_block;

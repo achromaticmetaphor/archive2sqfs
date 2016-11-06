@@ -23,8 +23,6 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdlib.h>
 #include <string.h>
 
-#include <glib.h>
-
 #include "dirtree.h"
 #include "sqsh_defs.h"
 
@@ -42,16 +40,16 @@ void dirtree_free(struct dirtree * const dt)
       for (size_t i = 0; i < dt->addi.dir.nentries; i++)
         {
           dirtree_free(dt->addi.dir.entries[i].inode);
-          g_free((char *) dt->addi.dir.entries[i].name);
+          free((char *) dt->addi.dir.entries[i].name);
         }
 
-      g_free(dt->addi.dir.entries);
+      free(dt->addi.dir.entries);
     }
 
   else if (dt->inode_type == SQFS_INODE_TYPE_REG)
-    g_free(dt->addi.reg.blocks);
+    free(dt->addi.reg.blocks);
 
-  g_free(dt);
+  free(dt);
 }
 
 static void dirtree_dump_with_prefix(struct dirtree const * const dt, char const * const prefix)
