@@ -16,13 +16,27 @@ You should have received a copy of the GNU General Public License
 along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef LSL_DW_H
-#define LSL_DW_H
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 
-uint32_t dw_write_data(unsigned char const *, size_t, FILE *);
+#include <zlib.h>
 
-#endif
+#include "sqsh_defs.h"
+
+uint32_t dw_write_data(unsigned char const * const buff, size_t const len, FILE * const out)
+{
+  if (len == 0)
+    return SQFS_BLOCK_COMPRESSED_BIT;
+
+  unsigned long int zsize = compressBound(len);
+  unsigned char zbuff[zsize];
+  compress2(zbuff, &zsize, buff, len, 9);
+
+  _Bool const compressed = zsize < len;
+  unsigned char const * const block = compressed ? zbuff : buff;
+  size_t const size = compressed ? zsize : len;
+
+  fwrite(block, 1, size, out);
+  return compressed ? size : (size | SQFS_BLOCK_COMPRESSED_BIT);
+}
