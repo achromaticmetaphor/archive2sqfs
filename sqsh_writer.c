@@ -30,13 +30,16 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "mdw.h"
 #include "sqsh_writer.h"
 
-static _Bool fround_to(FILE * const f, long int const block)
+static int fround_to(FILE * const f, long int const block)
 {
   long int const tell = ftell(f);
+  if (tell == -1)
+    return 1;
+
   long int const fill = block - (tell % block);
   unsigned char buff[fill];
   memset(buff, 0, fill);
-  return fwrite(buff, 1, fill, f) == fill;
+  return fwrite(buff, 1, fill, f) != fill;
 }
 
 static void sqfs_super_init(struct sqfs_super * const super, int const block_log)
@@ -55,27 +58,27 @@ static void sqfs_super_init(struct sqfs_super * const super, int const block_log
   super->lookup_table_start = 0xffffffffffffffffu;
 }
 
-static _Bool sqsh_writer_free(struct sqsh_writer * const wr)
+static void sqsh_writer_free(struct sqsh_writer * const wr)
 {
   free(wr->current_block);
   free(wr->ids);
 }
 
-static _Bool sqsh_writer_alloc(struct sqsh_writer * const wr, int const block_log)
+static int sqsh_writer_alloc(struct sqsh_writer * const wr, int const block_log)
 {
   wr->current_block = malloc((size_t) 2 << block_log);
   wr->current_fragment = wr->current_block == NULL ? NULL : wr->current_block + ((size_t) 1 << block_log);
   wr->ids = wr->current_fragment == NULL ? NULL : malloc(sizeof(*wr->ids) * 0x10000);
 
   if (wr->current_fragment == NULL)
-    return sqsh_writer_free(wr), 1;
+    return sqsh_writer_free(wr), ENOMEM;
   return 0;
 }
 
 int sqsh_writer_init(struct sqsh_writer * const wr, char const * const path, int const block_log)
 {
   if (sqsh_writer_alloc(wr, block_log))
-    return 1;
+    return ENOMEM;
 
   wr->next_inode = 1;
   mdw_init(&wr->dentry_writer);
@@ -115,17 +118,24 @@ static int sqsh_writer_append_fragment(struct sqsh_writer * const wr, uint32_t c
 
   wr->fragments[wr->super.fragments].start_block = start_block;
   wr->fragments[wr->super.fragments++].size = size;
+  return 0;
 }
 
-void sqsh_writer_flush_fragment(struct sqsh_writer * const wr)
+int sqsh_writer_flush_fragment(struct sqsh_writer * const wr)
 {
   if (wr->fragment_pos == 0)
-    return;
+    return 0;
 
   long int const tell = ftell(wr->outfile);
+  if (tell == -1)
+    return 1;
+
   uint32_t const bsize = dw_write_data(wr->current_fragment, wr->fragment_pos, wr->outfile);
-  sqsh_writer_append_fragment(wr, bsize, tell);
+  if (bsize == 0xffffffff)
+    return 1;
+
   wr->fragment_pos = 0;
+  return sqsh_writer_append_fragment(wr, bsize, tell);
 }
 
 size_t sqsh_writer_put_fragment(struct sqsh_writer * const wr, unsigned char const * const buff, size_t const len)
@@ -133,7 +143,8 @@ size_t sqsh_writer_put_fragment(struct sqsh_writer * const wr, unsigned char con
   size_t const block_size = (size_t) 1 << wr->super.block_log;
 
   if (wr->fragment_pos + len > block_size)
-    sqsh_writer_flush_fragment(wr);
+    if (sqsh_writer_flush_fragment(wr))
+      return block_size;
 
   memcpy(wr->current_fragment + wr->fragment_pos, buff, len);
   size_t const offset = wr->fragment_pos;
@@ -148,7 +159,7 @@ int u32cmp(void const * va, void const * vb)
   return a < b ? -1 : a > b;
 }
 
-void sqsh_writer_write_header(struct sqsh_writer * const writer)
+int sqsh_writer_write_header(struct sqsh_writer * const writer)
 {
   uint8_t header[96];
 
@@ -174,12 +185,10 @@ void sqsh_writer_write_header(struct sqsh_writer * const writer)
   le64(header + 80, writer->super.fragment_table_start);
   le64(header + 88, writer->super.lookup_table_start);
 
-  fround_to(writer->outfile, SQFS_PAD_SIZE);
-  fseek(writer->outfile, 0L, SEEK_SET);
-  fwrite(header, sizeof(header), 1, writer->outfile);
+  return fround_to(writer->outfile, SQFS_PAD_SIZE) || fseek(writer->outfile, 0L, SEEK_SET) || fwrite(header, 1, sizeof(header), writer->outfile) != sizeof(header);
 }
 
-static void sqsh_writer_write_id_table(struct sqsh_writer * const wr)
+static int sqsh_writer_write_id_table(struct sqsh_writer * const wr)
 {
   size_t const index_count = (wr->nids >> 11) + ((wr->nids & 0x7ff) != 0);
   unsigned char indices[index_count * 8];
@@ -192,20 +201,27 @@ static void sqsh_writer_write_id_table(struct sqsh_writer * const wr)
       unsigned char buff[4];
       le32(buff, wr->ids[i]);
       uint64_t const maddr = mdw_put(&id_writer, buff, 4);
+      if (meta_address_error(maddr))
+        return mdw_destroy(&id_writer), meta_address_error(maddr);
+
       if ((i & 0x7ff) == 0)
         le64(indices + index++ * 8, wr->super.id_table_start + meta_address_block(maddr));
     }
 
+  int error = 0;
   if (wr->nids & 0x7ff)
-    mdw_write_block_no_pad(&id_writer);
-  mdw_out(&id_writer, wr->outfile);
+    error = mdw_write_block_no_pad(&id_writer);
+
+  error = error || mdw_out(&id_writer, wr->outfile);
   mdw_destroy(&id_writer);
 
-  wr->super.id_table_start = ftell(wr->outfile);
-  fwrite(indices, 1, index_count * 8, wr->outfile);
+  wr->super.id_table_start = error ? -1 : ftell(wr->outfile);
+  error = error || wr->super.id_table_start == -1;
+
+  return error || fwrite(indices, 1, index_count * 8, wr->outfile) != index_count * 8;
 }
 
-static void sqsh_writer_write_fragment_table(struct sqsh_writer * const wr)
+static int sqsh_writer_write_fragment_table(struct sqsh_writer * const wr)
 {
   size_t const index_count = (wr->super.fragments >> 9) + ((wr->super.fragments & 0x1ff) != 0);
   unsigned char fragment_indices[index_count * 8];
@@ -221,33 +237,46 @@ static void sqsh_writer_write_fragment_table(struct sqsh_writer * const wr)
       le32(buff + 8, frag->size);
       le32(buff + 12, 0);
       uint64_t const maddr = mdw_put(&fragment_writer, buff, 16);
+      if (meta_address_error(maddr))
+        return mdw_destroy(&fragment_writer), meta_address_error(maddr);
+
       if ((i & 0x1ff) == 0)
         le64(fragment_indices + index++ * 8, wr->super.fragment_table_start + meta_address_block(maddr));
     }
 
+  int error = 0;
   if (wr->super.fragments & 0x1ff)
-    mdw_write_block_no_pad(&fragment_writer);
-  mdw_out(&fragment_writer, wr->outfile);
+    error = mdw_write_block_no_pad(&fragment_writer);
+
+  error = error || mdw_out(&fragment_writer, wr->outfile);
   mdw_destroy(&fragment_writer);
 
-  wr->super.fragment_table_start = ftell(wr->outfile);
-  fwrite(fragment_indices, 1, index_count * 8, wr->outfile);
+  wr->super.fragment_table_start = error ? -1 : ftell(wr->outfile);
+  error = error || wr->super.fragment_table_start == -1;
+
+  return error || fwrite(fragment_indices, 1, index_count * 8, wr->outfile) != index_count * 8;
 }
 
 int sqsh_writer_write_tables(struct sqsh_writer * const wr)
 {
+  int error = 0;
   wr->super.inode_table_start = ftell(wr->outfile);
-  mdw_out(&wr->inode_writer, wr->outfile);
+  error = error || wr->super.inode_table_start == -1;
+  error = error || mdw_out(&wr->inode_writer, wr->outfile);
 
   wr->super.directory_table_start = ftell(wr->outfile);
-  mdw_out(&wr->dentry_writer, wr->outfile);
+  error = error || wr->super.directory_table_start == -1;
+  error = error || mdw_out(&wr->dentry_writer, wr->outfile);
 
   wr->super.fragment_table_start = ftell(wr->outfile);
-  sqsh_writer_write_fragment_table(wr);
+  error = error || wr->super.fragment_table_start == -1;
+  error = error || sqsh_writer_write_fragment_table(wr);
 
   wr->super.id_table_start = ftell(wr->outfile);
-  sqsh_writer_write_id_table(wr);
+  error = error || wr->super.id_table_start == -1;
+  error = error || sqsh_writer_write_id_table(wr);
 
   wr->super.bytes_used = ftell(wr->outfile);
-  return ferror(wr->outfile);
+  error = error || wr->super.bytes_used == -1;
+  return error;
 }

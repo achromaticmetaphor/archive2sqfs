@@ -27,6 +27,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "dw.h"
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
+#include "util.h"
 
 void dirtree_reg_init(struct dirtree * const dt, struct sqsh_writer * const wr)
 {
@@ -71,48 +72,57 @@ static int dirtree_reg_add_block(struct dirtree * const dt, size_t size, long in
       dt->addi.reg.blocks_space = space;
     }
 
-  dt->addi.reg.blocks[dt->addi.reg.nblocks] = size;
   if (dt->addi.reg.nblocks == 0)
     dt->addi.reg.start_block = start_block;
-  dt->addi.reg.nblocks++;
 
+  dt->addi.reg.blocks[dt->addi.reg.nblocks++] = size;
   return 0;
 }
 
-void dirtree_reg_flush(struct sqsh_writer * const wr, struct dirtree * const dt)
+int dirtree_reg_flush(struct sqsh_writer * const wr, struct dirtree * const dt)
 {
   if (wr->current_pos == 0)
-    return;
+    return 0;
 
-  if (wr->current_pos < ((size_t) 1 << wr->super.block_log) && dt->addi.reg.nblocks == 0)
+  size_t const block_size = (size_t) 1 << wr->super.block_log;
+  if (wr->current_pos < block_size && dt->addi.reg.nblocks == 0)
     {
       dt->addi.reg.offset = sqsh_writer_put_fragment(wr, wr->current_block, wr->current_pos);
+      RETIF(dt->addi.reg.offset == block_size);
       dt->addi.reg.fragment = wr->super.fragments;
     }
   else
     {
       long int const tell = ftell(wr->outfile);
+      RETIF(tell == -1);
+
       uint32_t const bsize = dw_write_data(wr->current_block, wr->current_pos, wr->outfile);
-      dirtree_reg_add_block(dt, bsize, tell);
+      RETIF(bsize == 0xffffffff);
+
+      RETIF(dirtree_reg_add_block(dt, bsize, tell));
     }
+
   wr->current_pos = 0;
+  return 0;
 }
 
-void dirtree_reg_append(struct sqsh_writer * const wr, struct dirtree * const dt, unsigned char const * const buff, size_t const len)
+int dirtree_reg_append(struct sqsh_writer * const wr, struct dirtree * const dt, unsigned char const * buff, size_t len)
 {
-  // TODO WHILE len > block_size
-  size_t const block_size = (size_t) 1 << wr->super.block_log;
-  size_t const remaining = block_size - wr->current_pos;
-  size_t const added = len > remaining ? remaining : len;
   dt->addi.reg.file_size += len;
-
-  memcpy(wr->current_block + wr->current_pos, buff, added);
-  wr->current_pos += added;
-  if (wr->current_pos == block_size)
+  size_t const block_size = (size_t) 1 << wr->super.block_log;
+  while (len != 0)
     {
-      dirtree_reg_flush(wr, dt);
-      size_t const left = len - added;
-      memcpy(wr->current_block, buff + added, left);
-      wr->current_pos = left;
+      size_t const remaining = block_size - wr->current_pos;
+      size_t const added = len > remaining ? remaining : len;
+      memcpy(wr->current_block + wr->current_pos, buff, added);
+      wr->current_pos += added;
+
+      if (wr->current_pos == block_size)
+        RETIF(dirtree_reg_flush(wr, dt));
+
+      len -= added;
+      buff += added;
     }
+
+  return 0;
 }

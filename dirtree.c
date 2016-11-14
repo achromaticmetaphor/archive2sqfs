@@ -33,6 +33,13 @@ int dirtree_entry_compare(void const * const va, void const * const vb)
   return strcmp(a->name, b->name);
 }
 
+int dirtree_entry_by_name(void const * const va, void const * const vb)
+{
+  char const * const a = va;
+  struct dirtree_entry const * const b = vb;
+  return strcmp(a, b->name);
+}
+
 void dirtree_free(struct dirtree * const dt)
 {
   if (dt->inode_type == SQFS_INODE_TYPE_DIR)

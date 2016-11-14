@@ -67,34 +67,46 @@ struct dirtree * dirtree_dir_new(struct sqsh_writer * const wr)
 
 static struct dirtree_entry * dirtree_get_child_entry(struct dirtree * const dt, char const * name)
 {
-  dirtree_dirop_prep(dt);
-  struct dirtree_entry const e = {name, NULL};
-  return lsearch(&e, dt->addi.dir.entries, &dt->addi.dir.nentries, sizeof(e), dirtree_entry_compare);
+  struct dirtree_entry * entry = lfind(name, dt->addi.dir.entries, &dt->addi.dir.nentries, sizeof(*entry), dirtree_entry_by_name);
+  if (entry == NULL && !dirtree_dirop_prep(dt))
+    {
+      entry = dt->addi.dir.entries + dt->addi.dir.nentries++;
+      entry->name = name;
+      entry->inode = NULL;
+    }
+
+  return entry;
+}
+
+static struct dirtree * dirtree_get_child(struct sqsh_writer * const wr, struct dirtree * const dt, char const * name, struct dirtree * (*con)(struct sqsh_writer *))
+{
+  struct dirtree_entry * const entry = dirtree_get_child_entry(dt, name);
+  if (entry == NULL)
+    return NULL;
+
+  if (entry->inode == NULL)
+    {
+      entry->name = strdup(name);
+      entry->inode = entry->name == NULL ? NULL : con(wr);
+      if (entry->inode == NULL)
+        {
+          free((char *) entry->name);
+          dt->addi.dir.nentries--;
+          return NULL;
+        }
+    }
+
+  return entry->inode;
 }
 
 struct dirtree * dirtree_get_subdir(struct sqsh_writer * const wr, struct dirtree * const dt, char const * name)
 {
-  struct dirtree_entry * const subdir_entry = dirtree_get_child_entry(dt, name);
-  if (subdir_entry->inode == NULL)
-    {
-      subdir_entry->name = strdup(name);
-      subdir_entry->inode = dirtree_dir_new(wr);
-    }
-  // TODO
-
-  return subdir_entry->inode;
+  return dirtree_get_child(wr, dt, name, dirtree_dir_new);
 }
 
 struct dirtree * dirtree_put_reg(struct sqsh_writer * const wr, struct dirtree * const dt, char const * const name)
 {
-  struct dirtree_entry * const entry = dirtree_get_child_entry(dt, name);
-  if (entry->inode == NULL)
-    {
-      entry->name = strdup(name);
-      entry->inode = dirtree_reg_new(wr);
-    }
-  // TODO
-  return entry->inode;
+  return dirtree_get_child(wr, dt, name, dirtree_reg_new);
 }
 
 struct dirtree * dirtree_get_subdir_for_path(struct sqsh_writer * const wr, struct dirtree * const dt, char const * const path)
@@ -105,7 +117,7 @@ struct dirtree * dirtree_get_subdir_for_path(struct sqsh_writer * const wr, stru
   char * ststate;
   struct dirtree * subdir = dt;
   for (char const * component = strtok_r(pathtokens, "/", &ststate); component != NULL; component = strtok_r(NULL, "/", &ststate))
-    if (component[0] != 0)
+    if (component[0] != 0 && subdir != NULL)
       subdir = dirtree_get_subdir(wr, subdir, component);
 
   return subdir;
@@ -124,5 +136,5 @@ struct dirtree * dirtree_put_reg_for_path(struct sqsh_writer * const wr, struct 
     *sep = 0;
 
   struct dirtree * parent_dt = dirtree_get_subdir_for_path(wr, root, parent);
-  return dirtree_put_reg(wr, parent_dt, name);
+  return parent_dt == NULL ? NULL : dirtree_put_reg(wr, parent_dt, name);
 }

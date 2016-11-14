@@ -31,12 +31,15 @@ uint32_t dw_write_data(unsigned char const * const buff, size_t const len, FILE 
 
   unsigned long int zsize = compressBound(len);
   unsigned char zbuff[zsize];
-  compress2(zbuff, &zsize, buff, len, 9);
+  if (compress2(zbuff, &zsize, buff, len, 9) != Z_OK)
+    return 0xffffffff;
 
   _Bool const compressed = zsize < len;
   unsigned char const * const block = compressed ? zbuff : buff;
   size_t const size = compressed ? zsize : len;
 
-  fwrite(block, 1, size, out);
+  if (fwrite(block, 1, size, out) != size)
+    return 0xffffffff;
+
   return compressed ? size : (size | SQFS_BLOCK_COMPRESSED_BIT);
 }

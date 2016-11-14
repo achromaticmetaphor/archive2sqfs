@@ -49,60 +49,62 @@ int main(int argc, char * argv[])
   FILE * const infile = root == NULL ? NULL : argc == 3 ? fopen(argv[2], "rb") : stdin;
   struct archive * const archive = infile == NULL ? NULL : archive_read_new();
 
-  if (archive != NULL)
-    {
-      archive_read_support_filter_all(archive);
-      archive_read_support_format_all(archive);
-    }
-  int const archive_opened = archive == NULL ? ARCHIVE_FATAL : archive_read_open_FILE(archive, infile);
+  _Bool failed = archive == NULL;
+  failed = failed || archive_read_support_filter_all(archive) != ARCHIVE_OK;
+  failed = failed || archive_read_support_format_all(archive) != ARCHIVE_OK;
+  failed = failed || archive_read_open_FILE(archive, infile) != ARCHIVE_OK;
 
-  if (archive_opened == ARCHIVE_OK)
+  size_t const block_size = writer_failed ? (size_t) 0 : (size_t) 1 << writer.super.block_log;
+  unsigned char buff[block_size];
+  struct archive_entry * entry;
+
+  while (!failed && archive_read_next_header(archive, &entry) == ARCHIVE_OK)
     {
-      struct archive_entry * entry;
-      while (archive_read_next_header(archive, &entry) == ARCHIVE_OK)
+      char const * pathname = archive_entry_pathname(entry);
+      struct dirtree * dt = NULL;
+      mode_t const filetype = archive_entry_filetype(entry);
+      switch (filetype)
         {
-          char const * pathname = archive_entry_pathname(entry);
-          struct dirtree * dt = NULL;
-          mode_t const filetype = archive_entry_filetype(entry);
-          switch (filetype)
-            {
-              case AE_IFDIR:
-                dt = dirtree_get_subdir_for_path(&writer, root, pathname);
-                break;
-              case AE_IFREG:
-                dt = dirtree_put_reg_for_path(&writer, root, pathname);
-                {
-                  size_t const block_size = (size_t) 1 << writer.super.block_log;
-                  unsigned char buff[block_size];
-                  int64_t i;
-                  for (i = archive_entry_size(entry); i >= block_size; i -= block_size)
-                    {
-                      archive_read_data(archive, buff, block_size); // TODO
-                      dirtree_reg_append(&writer, dt, buff, block_size);
-                    }
-                  if (i > 0)
-                    {
-                      archive_read_data(archive, buff, i); // TODO
-                      dirtree_reg_append(&writer, dt, buff, i);
-                    }
-                  dirtree_reg_flush(&writer, dt);
-                }
-                break;
-              default:;
-            }
+          case AE_IFDIR:
+            dt = dirtree_get_subdir_for_path(&writer, root, pathname);
+            failed = failed || dt == NULL;
+            break;
+          case AE_IFREG:
+            dt = dirtree_put_reg_for_path(&writer, root, pathname);
+            failed = failed || dt == NULL;
 
-          if (dt != NULL)
-            {
-              dt->mode = archive_entry_perm(entry);
-              dt->uid = archive_entry_uid(entry);
-              dt->gid = archive_entry_gid(entry);
-              dt->mtime = archive_entry_mtime(entry);
-            }
+            int64_t i;
+            for (i = archive_entry_size(entry); i >= block_size && !failed; i -= block_size)
+              {
+                failed = failed || archive_read_data(archive, buff, block_size) != block_size;
+                failed = failed || dirtree_reg_append(&writer, dt, buff, block_size);
+              }
+            if (i > 0 && !failed)
+              {
+                failed = failed || archive_read_data(archive, buff, i) != i;
+                failed = failed || dirtree_reg_append(&writer, dt, buff, i);
+              }
+
+            failed = failed || dirtree_reg_flush(&writer, dt);
+            break;
+          default:;
+        }
+
+      if (dt != NULL)
+        {
+          dt->mode = archive_entry_perm(entry);
+          dt->uid = archive_entry_uid(entry);
+          dt->gid = archive_entry_gid(entry);
+          dt->mtime = archive_entry_mtime(entry);
         }
     }
 
-  dirtree_write_tables(&writer, root);
-  sqsh_writer_write_header(&writer);
+  failed = failed || dirtree_write_tables(&writer, root);
+  failed = failed || sqsh_writer_write_header(&writer);
+  failed = failed || sqsh_writer_destroy(&writer);
+
+  if (failed)
+    remove(argv[1]);
 
   if (archive != NULL)
     archive_read_free(archive);
@@ -110,8 +112,8 @@ int main(int argc, char * argv[])
   if (infile != NULL)
     fclose(infile);
 
-  dirtree_free(root);
-  sqsh_writer_destroy(&writer);
+  if (root != NULL)
+    dirtree_free(root);
 
-  return archive_opened == ARCHIVE_OK ? 0 : 1;
+  return failed;
 }

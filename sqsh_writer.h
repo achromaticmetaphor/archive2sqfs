@@ -79,9 +79,9 @@ struct sqsh_writer
 int u32cmp(void const *, void const *);
 int sqsh_writer_init(struct sqsh_writer *, char const *, int);
 int sqsh_writer_destroy(struct sqsh_writer *);
-void sqsh_writer_write_header(struct sqsh_writer *);
+int sqsh_writer_write_header(struct sqsh_writer *);
 size_t sqsh_writer_put_fragment(struct sqsh_writer *, unsigned char const *, size_t);
-void sqsh_writer_flush_fragment(struct sqsh_writer *);
+int sqsh_writer_flush_fragment(struct sqsh_writer *);
 int sqsh_writer_write_tables(struct sqsh_writer *);
 
 static inline uint32_t sqsh_writer_next_inode_number(struct sqsh_writer * const wr)

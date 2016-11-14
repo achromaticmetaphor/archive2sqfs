@@ -47,13 +47,13 @@ static inline void mdw_destroy(struct mdw * const mdw)
   free(mdw->table);
 }
 
-static inline _Bool mdw_out(struct mdw * const mdw, FILE * const out)
+static inline int mdw_out(struct mdw * const mdw, FILE * const out)
 {
-  return fwrite(mdw->table, 1, mdw->block, out) == mdw->block;
+  return fwrite(mdw->table, 1, mdw->block, out) != mdw->block;
 }
 
-_Bool mdw_write_block_no_pad(struct mdw *);
-_Bool mdw_write_block(struct mdw *);
+int mdw_write_block_no_pad(struct mdw *);
+int mdw_write_block(struct mdw *);
 uint64_t mdw_put(struct mdw *, unsigned char const *, size_t);
 
 #endif
