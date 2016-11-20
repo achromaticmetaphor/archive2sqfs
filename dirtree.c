@@ -52,9 +52,10 @@ void dirtree_free(struct dirtree * const dt)
 
       free(dt->addi.dir.entries);
     }
-
   else if (dt->inode_type == SQFS_INODE_TYPE_REG)
     free(dt->addi.reg.blocks);
+  else if (dt->inode_type == SQFS_INODE_TYPE_SYM)
+    free(dt->addi.sym.target);
 
   free(dt);
 }

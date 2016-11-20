@@ -31,20 +31,14 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 void dirtree_reg_init(struct dirtree * const dt, struct sqsh_writer * const wr)
 {
-  dt->inode_type = SQFS_INODE_TYPE_REG;
-  dt->mode = 0644;
-  dt->uid = 0;
-  dt->gid = 0;
-  dt->mtime = 0;
-  dt->inode_number = sqsh_writer_next_inode_number(wr);
+  dirtree_init(dt, wr);
 
+  dt->inode_type = SQFS_INODE_TYPE_REG;
   dt->addi.reg.start_block = 0;
   dt->addi.reg.file_size = 0;
   dt->addi.reg.sparse = 0;
-  dt->addi.reg.nlink = 1;
   dt->addi.reg.fragment = 0xffffffffu;
   dt->addi.reg.offset = 0;
-  dt->addi.reg.xattr = 0xffffffffu;
 
   dt->addi.reg.blocks = NULL;
   dt->addi.reg.nblocks = 0;
@@ -53,10 +47,7 @@ void dirtree_reg_init(struct dirtree * const dt, struct sqsh_writer * const wr)
 
 struct dirtree * dirtree_reg_new(struct sqsh_writer * const wr)
 {
-  struct dirtree * const dt = malloc(sizeof(*dt));
-  if (dt != NULL)
-    dirtree_reg_init(dt, wr);
-  return dt;
+  return dirtree_new(wr, dirtree_reg_init);
 }
 
 static int dirtree_reg_add_block(struct dirtree * const dt, size_t size, long int const start_block)

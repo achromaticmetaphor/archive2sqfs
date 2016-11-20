@@ -67,8 +67,8 @@ int main(int argc, char * argv[])
         {
           case AE_IFDIR:
             dt = dirtree_get_subdir_for_path(&writer, root, pathname);
-            failed = failed || dt == NULL;
             break;
+
           case AE_IFREG:
             dt = dirtree_put_reg_for_path(&writer, root, pathname);
             failed = failed || dt == NULL;
@@ -87,9 +87,31 @@ int main(int argc, char * argv[])
 
             failed = failed || dirtree_reg_flush(&writer, dt);
             break;
+
+          case AE_IFLNK:
+            dt = dirtree_put_sym_for_path(&writer, root, pathname, archive_entry_symlink(entry));
+            break;
+
+          case AE_IFBLK:
+            dt = dirtree_put_dev_for_path(&writer, root, pathname, SQFS_INODE_TYPE_BLK, archive_entry_rdev(entry));
+            break;
+
+          case AE_IFCHR:
+            dt = dirtree_put_dev_for_path(&writer, root, pathname, SQFS_INODE_TYPE_CHR, archive_entry_rdev(entry));
+            break;
+
+          case AE_IFSOCK:
+            dt = dirtree_put_ipc_for_path(&writer, root, pathname, SQFS_INODE_TYPE_SOCK);
+            break;
+
+          case AE_IFIFO:
+            dt = dirtree_put_ipc_for_path(&writer, root, pathname, SQFS_INODE_TYPE_PIPE);
+            break;
+
           default:;
         }
 
+      failed = failed || dt == NULL;
       if (dt != NULL)
         {
           dt->mode = archive_entry_perm(entry);

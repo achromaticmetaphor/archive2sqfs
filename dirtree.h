@@ -21,6 +21,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "sqsh_writer.h"
 
@@ -36,7 +37,6 @@ struct dirtree_addi_dir
   size_t space;
   struct dirtree_entry * entries;
   uint32_t filesize;
-  uint32_t nlink;
   uint32_t dtable_start_block;
   uint16_t dtable_start_offset;
 };
@@ -46,20 +46,30 @@ struct dirtree_addi_reg
   uint64_t start_block;
   uint64_t file_size;
   uint64_t sparse;
-  uint32_t nlink;
   uint32_t fragment;
   uint32_t offset;
-  uint32_t xattr;
 
   uint32_t * blocks;
   size_t nblocks;
   size_t blocks_space;
 };
 
+struct dirtree_addi_sym
+{
+  char * target;
+};
+
+struct dirtree_addi_dev
+{
+  uint32_t rdev;
+};
+
 union dirtree_addi
 {
   struct dirtree_addi_dir dir;
   struct dirtree_addi_reg reg;
+  struct dirtree_addi_sym sym;
+  struct dirtree_addi_dev dev;
 };
 
 struct dirtree
@@ -71,6 +81,8 @@ struct dirtree
   uint32_t mtime;
   uint32_t inode_number;
   uint64_t inode_address;
+  uint32_t nlink;
+  uint32_t xattr;
 
   union dirtree_addi addi;
 };
@@ -88,5 +100,30 @@ void dirtree_free(struct dirtree *);
 struct dirtree * dirtree_put_reg_for_path(struct sqsh_writer *, struct dirtree *, char const *);
 int dirtree_reg_append(struct sqsh_writer *, struct dirtree *, unsigned char const *, size_t);
 int dirtree_reg_flush(struct sqsh_writer *, struct dirtree *);
+struct dirtree * dirtree_put_sym_for_path(struct sqsh_writer *, struct dirtree *, char const *, char const *);
+struct dirtree * dirtree_put_dev_for_path(struct sqsh_writer *, struct dirtree *, char const *, uint16_t, uint32_t);
+struct dirtree * dirtree_put_ipc_for_path(struct sqsh_writer *, struct dirtree *, char const *, uint16_t);
+struct dirtree * dirtree_sym_new(struct sqsh_writer *);
+struct dirtree * dirtree_dev_new(struct sqsh_writer *);
+struct dirtree * dirtree_ipc_new(struct sqsh_writer *);
+
+static inline void dirtree_init(struct dirtree * const dt, struct sqsh_writer * const wr)
+{
+  dt->mode = 0644;
+  dt->uid = 0;
+  dt->gid = 0;
+  dt->mtime = 0;
+  dt->inode_number = sqsh_writer_next_inode_number(wr);
+  dt->nlink = 1;
+  dt->xattr = 0xffffffffu;
+}
+
+static inline struct dirtree * dirtree_new(struct sqsh_writer * const wr, void (*init)(struct dirtree *, struct sqsh_writer *))
+{
+  struct dirtree * const dt = malloc(sizeof(*dt));
+  if (dt != NULL)
+    init(dt, wr);
+  return dt;
+}
 
 #endif
