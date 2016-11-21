@@ -36,7 +36,7 @@ static int fround_to(FILE * const f, long int const block)
   if (tell == -1)
     return 1;
 
-  long int const fill = block - (tell % block);
+  size_t const fill = block - (tell % block);
   unsigned char buff[fill];
   memset(buff, 0, fill);
   return fwrite(buff, 1, fill, f) != fill;
@@ -215,8 +215,9 @@ static int sqsh_writer_write_id_table(struct sqsh_writer * const wr)
   error = error || mdw_out(&id_writer, wr->outfile);
   mdw_destroy(&id_writer);
 
-  wr->super.id_table_start = error ? -1 : ftell(wr->outfile);
-  error = error || wr->super.id_table_start == -1;
+  long int const tell = error ? -1 : ftell(wr->outfile);
+  error = error || tell == -1;
+  wr->super.id_table_start = tell;
 
   return error || fwrite(indices, 1, index_count * 8, wr->outfile) != index_count * 8;
 }
@@ -251,32 +252,45 @@ static int sqsh_writer_write_fragment_table(struct sqsh_writer * const wr)
   error = error || mdw_out(&fragment_writer, wr->outfile);
   mdw_destroy(&fragment_writer);
 
-  wr->super.fragment_table_start = error ? -1 : ftell(wr->outfile);
-  error = error || wr->super.fragment_table_start == -1;
+  long int const tell = error ? -1 : ftell(wr->outfile);
+  error = error || tell == -1;
+  wr->super.fragment_table_start = tell;
 
   return error || fwrite(fragment_indices, 1, index_count * 8, wr->outfile) != index_count * 8;
+}
+
+static int sqsh_writer_write_inode_table(struct sqsh_writer * const wr)
+{
+  return mdw_out(&wr->inode_writer, wr->outfile);
+}
+
+static int sqsh_writer_write_directory_table(struct sqsh_writer * const wr)
+{
+  return mdw_out(&wr->dentry_writer, wr->outfile);
+}
+
+static inline void tell_wr(struct sqsh_writer * const wr, int * const error, uint64_t * const start, int (*cb)(struct sqsh_writer *))
+{
+  long int const tell = ftell(wr->outfile);
+  *error = *error || tell == -1;
+  *start = tell;
+  *error = *error || cb(wr);
 }
 
 int sqsh_writer_write_tables(struct sqsh_writer * const wr)
 {
   int error = 0;
-  wr->super.inode_table_start = ftell(wr->outfile);
-  error = error || wr->super.inode_table_start == -1;
-  error = error || mdw_out(&wr->inode_writer, wr->outfile);
 
-  wr->super.directory_table_start = ftell(wr->outfile);
-  error = error || wr->super.directory_table_start == -1;
-  error = error || mdw_out(&wr->dentry_writer, wr->outfile);
+#define TELL_WR(T) tell_wr(wr, &error, &wr->super.T##_table_start, sqsh_writer_write_##T##_table)
+  TELL_WR(inode);
+  TELL_WR(directory);
+  TELL_WR(fragment);
+  TELL_WR(id);
+#undef TELL_WR
 
-  wr->super.fragment_table_start = ftell(wr->outfile);
-  error = error || wr->super.fragment_table_start == -1;
-  error = error || sqsh_writer_write_fragment_table(wr);
+  long int const tell = ftell(wr->outfile);
+  error = error || tell == -1;
+  wr->super.bytes_used = tell;
 
-  wr->super.id_table_start = ftell(wr->outfile);
-  error = error || wr->super.id_table_start == -1;
-  error = error || sqsh_writer_write_id_table(wr);
-
-  wr->super.bytes_used = ftell(wr->outfile);
-  error = error || wr->super.bytes_used == -1;
   return error;
 }

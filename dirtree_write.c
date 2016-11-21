@@ -58,7 +58,8 @@ static int dirtree_write_dirtable(struct sqsh_writer * const wr, struct dirtree 
       le16(buff + 14, 0);
       le16(buff + 16, entry->inode->inode_type - 7);
       le16(buff + 18, len_name - 1);
-      strncpy(buff + 20, entry->name, len_name);
+      for (size_t i = 0; i < len_name; i++)
+        buff[i + 20] = entry->name[i];
       RETIF(meta_address_error(mdw_put(&wr->dentry_writer, buff, len_buff)));
     }
 
