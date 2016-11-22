@@ -29,6 +29,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "le.h"
 #include "mdw.h"
 #include "sqsh_writer.h"
+#include "util.h"
 
 static int fround_to(FILE * const f, long int const block)
 {
@@ -188,76 +189,59 @@ int sqsh_writer_write_header(struct sqsh_writer * const writer)
   return fround_to(writer->outfile, SQFS_PAD_SIZE) || fseek(writer->outfile, 0L, SEEK_SET) || fwrite(header, 1, sizeof(header), writer->outfile) != sizeof(header);
 }
 
-static int sqsh_writer_write_id_table(struct sqsh_writer * const wr)
+#define ITD_SHIFT(ENTRY_LB) (SQFS_META_BLOCK_SIZE_LB - (ENTRY_LB))
+#define ITD_MASK(ENTRY_LB) MASK_LOW(ITD_SHIFT(ENTRY_LB))
+#define ITD_ENTRY_SIZE(ENTRY_LB) (1u << (ENTRY_LB))
+
+#define SQSH_WRITER_WRITE_INDEXED_TABLE_DEFN(TABLE, ENTRY_LB, COUNT_FIELD)                                        \
+  static int sqsh_writer_write_##TABLE##_table(struct sqsh_writer * const wr)                                     \
+  {                                                                                                               \
+    size_t const index_count = (wr->COUNT_FIELD >> ITD_SHIFT(ENTRY_LB)) + ((wr->nids & ITD_MASK(ENTRY_LB)) != 0); \
+    unsigned char indices[index_count * 8];                                                                       \
+    struct mdw mdw;                                                                                               \
+    mdw_init(&mdw);                                                                                               \
+    size_t index = 0;                                                                                             \
+                                                                                                                  \
+    for (size_t i = 0; i < wr->COUNT_FIELD; i++)                                                                  \
+      {                                                                                                           \
+        unsigned char buff[ITD_ENTRY_SIZE(ENTRY_LB)];                                                             \
+        sqsh_writer_##TABLE##_table_entry(buff, wr, i);                                                           \
+        uint64_t const maddr = mdw_put(&mdw, buff, ITD_ENTRY_SIZE(ENTRY_LB));                                     \
+        RETIF_C(meta_address_error(maddr), mdw_destroy(&mdw));                                                    \
+                                                                                                                  \
+        if ((i & ITD_MASK(ENTRY_LB)) == 0)                                                                        \
+          le64(indices + index++ * 8, wr->super.TABLE##_table_start + meta_address_block(maddr));                 \
+      }                                                                                                           \
+                                                                                                                  \
+    int error = 0;                                                                                                \
+    if (wr->COUNT_FIELD & ITD_MASK(ENTRY_LB))                                                                     \
+      error = mdw_write_block_no_pad(&mdw);                                                                       \
+                                                                                                                  \
+    error = error || mdw_out(&mdw, wr->outfile);                                                                  \
+    mdw_destroy(&mdw);                                                                                            \
+                                                                                                                  \
+    long int const tell = error ? -1 : ftell(wr->outfile);                                                        \
+    error = error || tell == -1;                                                                                  \
+    wr->super.TABLE##_table_start = tell;                                                                         \
+                                                                                                                  \
+    return error || fwrite(indices, 1, index_count * 8, wr->outfile) != index_count * 8;                          \
+  }
+
+static inline void sqsh_writer_id_table_entry(unsigned char buff[static 4], struct sqsh_writer * const wr, size_t const i)
 {
-  size_t const index_count = (wr->nids >> 11) + ((wr->nids & 0x7ff) != 0);
-  unsigned char indices[index_count * 8];
-  struct mdw id_writer;
-  mdw_init(&id_writer);
-  size_t index = 0;
-
-  for (size_t i = 0; i < wr->nids; i++)
-    {
-      unsigned char buff[4];
-      le32(buff, wr->ids[i]);
-      uint64_t const maddr = mdw_put(&id_writer, buff, 4);
-      if (meta_address_error(maddr))
-        return mdw_destroy(&id_writer), meta_address_error(maddr);
-
-      if ((i & 0x7ff) == 0)
-        le64(indices + index++ * 8, wr->super.id_table_start + meta_address_block(maddr));
-    }
-
-  int error = 0;
-  if (wr->nids & 0x7ff)
-    error = mdw_write_block_no_pad(&id_writer);
-
-  error = error || mdw_out(&id_writer, wr->outfile);
-  mdw_destroy(&id_writer);
-
-  long int const tell = error ? -1 : ftell(wr->outfile);
-  error = error || tell == -1;
-  wr->super.id_table_start = tell;
-
-  return error || fwrite(indices, 1, index_count * 8, wr->outfile) != index_count * 8;
+  le32(buff, wr->ids[i]);
 }
 
-static int sqsh_writer_write_fragment_table(struct sqsh_writer * const wr)
+static inline void sqsh_writer_fragment_table_entry(unsigned char buff[static 16], struct sqsh_writer * const wr, size_t const i)
 {
-  size_t const index_count = (wr->super.fragments >> 9) + ((wr->super.fragments & 0x1ff) != 0);
-  unsigned char fragment_indices[index_count * 8];
-  struct mdw fragment_writer;
-  mdw_init(&fragment_writer);
-  size_t index = 0;
-
-  for (size_t i = 0; i < wr->super.fragments; i++)
-    {
-      struct fragment_entry const * const frag = wr->fragments + i;
-      unsigned char buff[16];
-      le64(buff, frag->start_block);
-      le32(buff + 8, frag->size);
-      le32(buff + 12, 0);
-      uint64_t const maddr = mdw_put(&fragment_writer, buff, 16);
-      if (meta_address_error(maddr))
-        return mdw_destroy(&fragment_writer), meta_address_error(maddr);
-
-      if ((i & 0x1ff) == 0)
-        le64(fragment_indices + index++ * 8, wr->super.fragment_table_start + meta_address_block(maddr));
-    }
-
-  int error = 0;
-  if (wr->super.fragments & 0x1ff)
-    error = mdw_write_block_no_pad(&fragment_writer);
-
-  error = error || mdw_out(&fragment_writer, wr->outfile);
-  mdw_destroy(&fragment_writer);
-
-  long int const tell = error ? -1 : ftell(wr->outfile);
-  error = error || tell == -1;
-  wr->super.fragment_table_start = tell;
-
-  return error || fwrite(fragment_indices, 1, index_count * 8, wr->outfile) != index_count * 8;
+  struct fragment_entry const * const frag = wr->fragments + i;
+  le64(buff, frag->start_block);
+  le32(buff + 8, frag->size);
+  le32(buff + 12, 0);
 }
+
+SQSH_WRITER_WRITE_INDEXED_TABLE_DEFN(id, 2, nids)
+SQSH_WRITER_WRITE_INDEXED_TABLE_DEFN(fragment, 4, super.fragments)
 
 static int sqsh_writer_write_inode_table(struct sqsh_writer * const wr)
 {

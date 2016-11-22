@@ -35,7 +35,8 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #define SQFS_PAD_SIZE 0x1000
 
-#define SQFS_META_BLOCK_SIZE 0x2000
+#define SQFS_META_BLOCK_SIZE_LB 13
+#define SQFS_META_BLOCK_SIZE (1 << SQFS_META_BLOCK_SIZE_LB)
 #define SQFS_META_BLOCK_COMPRESSED_BIT 0x8000u
 #define SQFS_BLOCK_COMPRESSED_BIT UINT32_C(0x1000000)
 

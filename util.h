@@ -19,13 +19,20 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef LSL_UTIL_H
 #define LSL_UTIL_H
 
-#define RETIF(C)             \
+#define RETIF_C(C, CL)       \
   do                         \
     {                        \
       int const error = (C); \
       if (error)             \
-        return error;        \
+        {                    \
+          CL;                \
+          return error;      \
+        }                    \
     }                        \
   while (0)
+
+#define RETIF(C) RETIF_C((C), )
+
+#define MASK_LOW(N) (~((~0u) << (N)))
 
 #endif
