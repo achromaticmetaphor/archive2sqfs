@@ -84,12 +84,62 @@ static int dirtree_reg_write_inode_blocks(struct sqsh_writer * const wr, struct 
   return meta_address_error(mdw_put(&wr->inode_writer, buff, dt->addi.reg.nblocks * 4));
 }
 
+static inline size_t dirtree_write_inode_dir(unsigned char buff[static 40], struct dirtree * const dt, uint32_t const parent_inode_number)
+{
+  if (dt->addi.dir.filesize > 0xffffu || dt->xattr != 0xffffffffu)
+    {
+      le32(buff + 16, dt->nlink);
+      le32(buff + 20, dt->addi.dir.filesize);
+      le32(buff + 24, dt->addi.dir.dtable_start_block);
+      le32(buff + 28, parent_inode_number);
+      le16(buff + 32, 0);
+      le16(buff + 34, dt->addi.dir.dtable_start_offset);
+      le32(buff + 36, dt->xattr);
+      return 40;
+    }
+  else
+    {
+      le16(buff, dt->inode_type - 7);
+      le32(buff + 16, dt->addi.dir.dtable_start_block);
+      le32(buff + 20, dt->nlink);
+      le16(buff + 24, dt->addi.dir.filesize);
+      le16(buff + 26, dt->addi.dir.dtable_start_offset);
+      le32(buff + 28, parent_inode_number);
+      return 32;
+    }
+}
+
+static inline size_t dirtree_write_inode_reg(unsigned char buff[static 56], struct dirtree * const dt)
+{
+  if (dt->addi.reg.start_block > 0xffffu || dt->addi.reg.file_size > 0xffffu || dt->xattr != 0xffffffffu || dt->nlink != 1)
+    {
+      le64(buff + 16, dt->addi.reg.start_block);
+      le64(buff + 24, dt->addi.reg.file_size);
+      le64(buff + 32, dt->addi.reg.sparse);
+      le32(buff + 40, dt->nlink);
+      le32(buff + 44, dt->addi.reg.fragment);
+      le32(buff + 48, dt->addi.reg.offset);
+      le32(buff + 52, dt->xattr);
+      return 56;
+    }
+  else
+    {
+      le16(buff, dt->inode_type - 7);
+      le32(buff + 16, dt->addi.reg.start_block);
+      le32(buff + 20, dt->addi.reg.fragment);
+      le32(buff + 24, dt->addi.reg.offset);
+      le32(buff + 28, dt->addi.reg.file_size);
+      return 32;
+    }
+}
+
 static int dirtree_write_inode(struct sqsh_writer * const writer, struct dirtree * const dt, uint32_t const parent_inode_number)
 {
   if (dt->inode_type == SQFS_INODE_TYPE_DIR)
     for (size_t i = 0; i < dt->addi.dir.nentries; i++)
       RETIF(dirtree_write_inode(writer, dt->addi.dir.entries[i].inode, dt->inode_number));
 
+  _Bool const has_xattr = dt->xattr != 0xffffffffu;
   switch (dt->inode_type)
     {
       case SQFS_INODE_TYPE_DIR:
@@ -97,14 +147,8 @@ static int dirtree_write_inode(struct sqsh_writer * const writer, struct dirtree
           RETIF(dirtree_write_dirtable(writer, dt));
           unsigned char buff[40];
           dirtree_inode_common(writer, dt, buff);
-          le32(buff + 16, dt->nlink);
-          le32(buff + 20, dt->addi.dir.filesize);
-          le32(buff + 24, dt->addi.dir.dtable_start_block);
-          le32(buff + 28, parent_inode_number);
-          le16(buff + 32, 0);
-          le16(buff + 34, dt->addi.dir.dtable_start_offset);
-          le32(buff + 36, dt->xattr);
-          dt->inode_address = mdw_put(&writer->inode_writer, buff, 40);
+          size_t const inode_len = dirtree_write_inode_dir(buff, dt, parent_inode_number);
+          dt->inode_address = mdw_put(&writer->inode_writer, buff, inode_len);
           RETIF(meta_address_error(dt->inode_address));
         }
         break;
@@ -113,14 +157,8 @@ static int dirtree_write_inode(struct sqsh_writer * const writer, struct dirtree
         {
           unsigned char buff[56];
           dirtree_inode_common(writer, dt, buff);
-          le64(buff + 16, dt->addi.reg.start_block);
-          le64(buff + 24, dt->addi.reg.file_size);
-          le64(buff + 32, dt->addi.reg.sparse);
-          le32(buff + 40, dt->nlink);
-          le32(buff + 44, dt->addi.reg.fragment);
-          le32(buff + 48, dt->addi.reg.offset);
-          le32(buff + 52, dt->xattr);
-          dt->inode_address = mdw_put(&writer->inode_writer, buff, 56);
+          size_t const inode_len = dirtree_write_inode_reg(buff, dt);
+          dt->inode_address = mdw_put(&writer->inode_writer, buff, inode_len);
           RETIF(meta_address_error(dt->inode_address));
           dirtree_reg_write_inode_blocks(writer, dt);
         }
@@ -129,13 +167,20 @@ static int dirtree_write_inode(struct sqsh_writer * const writer, struct dirtree
       case SQFS_INODE_TYPE_SYM:
         {
           size_t const tlen = strlen(dt->addi.sym.target);
-          unsigned char buff[tlen + 28];
+          size_t const inode_len = tlen + (has_xattr ? 28 : 24);
+          unsigned char buff[inode_len];
+
           dirtree_inode_common(writer, dt, buff);
           le32(buff + 16, dt->nlink);
           le32(buff + 20, tlen);
           memcpy(buff + 24, dt->addi.sym.target, tlen);
-          le32(buff + 24 + tlen, dt->xattr);
-          dt->inode_address = mdw_put(&writer->inode_writer, buff, tlen + 28);
+
+          if (has_xattr)
+            le32(buff + 24 + tlen, dt->xattr);
+          else
+            le16(buff, dt->inode_type - 7);
+
+          dt->inode_address = mdw_put(&writer->inode_writer, buff, inode_len);
           RETIF(meta_address_error(dt->inode_address));
         }
         break;
@@ -143,12 +188,18 @@ static int dirtree_write_inode(struct sqsh_writer * const writer, struct dirtree
       case SQFS_INODE_TYPE_BLK:
       case SQFS_INODE_TYPE_CHR:
         {
-          unsigned char buff[28];
+          size_t const inode_len = has_xattr ? 28 : 24;
+          unsigned char buff[inode_len];
           dirtree_inode_common(writer, dt, buff);
           le32(buff + 16, dt->nlink);
           le32(buff + 20, dt->addi.dev.rdev);
-          le32(buff + 24, dt->xattr);
-          dt->inode_address = mdw_put(&writer->inode_writer, buff, 28);
+
+          if (has_xattr)
+            le32(buff + 24, dt->xattr);
+          else
+            le16(buff, dt->inode_type - 7);
+
+          dt->inode_address = mdw_put(&writer->inode_writer, buff, inode_len);
           RETIF(meta_address_error(dt->inode_address));
         }
         break;
@@ -156,11 +207,17 @@ static int dirtree_write_inode(struct sqsh_writer * const writer, struct dirtree
       case SQFS_INODE_TYPE_PIPE:
       case SQFS_INODE_TYPE_SOCK:
         {
-          unsigned char buff[24];
+          size_t const inode_len = has_xattr ? 24 : 20;
+          unsigned char buff[inode_len];
           dirtree_inode_common(writer, dt, buff);
           le32(buff + 16, dt->nlink);
-          le32(buff + 20, dt->xattr);
-          dt->inode_address = mdw_put(&writer->inode_writer, buff, 24);
+
+          if (has_xattr)
+            le32(buff + 20, dt->xattr);
+          else
+            le16(buff, dt->inode_type - 7);
+
+          dt->inode_address = mdw_put(&writer->inode_writer, buff, inode_len);
           RETIF(meta_address_error(dt->inode_address));
         }
         break;
