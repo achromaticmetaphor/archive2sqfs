@@ -21,6 +21,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <sys/stat.h>
@@ -34,19 +35,51 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
 
+static int usage(char const * const progname)
+{
+  fprintf(stderr, "usage: %s [--strip N] outfile [infile]\n", progname);
+  return 3;
+}
+
+static char const * strip_path(size_t const strip, char const * pathname)
+{
+  for (size_t i = 0; i < strip; i++)
+    {
+      char const * const sep = strchr(pathname, '/');
+      if (sep == NULL)
+        break;
+      pathname = sep + 1;
+    }
+
+  return pathname;
+}
+
 int main(int argc, char * argv[])
 {
-  if (argc != 2 && argc != 3)
+  if (argc < 2 || argc > 5)
+    return usage(argv[0]);
+
+  char const * const outfilepath = argv[argc <= 3 ? 1 : 3];
+  char const * infilepath = argc == 3 || argc == 5 ? argv[argc - 1] : NULL;
+  size_t strip = 0;
+
+  if (argc > 3)
+    if (!strcmp("--strip", argv[1]))
+      strip = strtoll(argv[2], NULL, 10);
+    else
+      return usage(argv[0]);
+
+  if (!access(outfilepath, F_OK))
     {
-      fprintf(stderr, "usage: %s outfile [infile]\n", argv[0]);
+      fprintf(stderr, "ERROR: output file exists: %s\n", outfilepath);
       return 3;
     }
 
   struct sqsh_writer writer;
-  _Bool const writer_failed = sqsh_writer_init(&writer, argv[1], SQFS_BLOCK_LOG_DEFAULT);
+  _Bool const writer_failed = sqsh_writer_init(&writer, outfilepath, SQFS_BLOCK_LOG_DEFAULT);
   struct dirtree * const root = writer_failed ? NULL : dirtree_dir_new(&writer);
 
-  FILE * const infile = root == NULL ? NULL : argc == 3 ? fopen(argv[2], "rb") : stdin;
+  FILE * const infile = root == NULL ? NULL : (infilepath == NULL ? stdin : fopen(infilepath, "rb"));
   struct archive * const archive = infile == NULL ? NULL : archive_read_new();
 
   _Bool failed = archive == NULL;
@@ -60,7 +93,7 @@ int main(int argc, char * argv[])
 
   while (!failed && archive_read_next_header(archive, &entry) == ARCHIVE_OK)
     {
-      char const * pathname = archive_entry_pathname(entry);
+      char const * const pathname = strip_path(strip, archive_entry_pathname(entry));
       struct dirtree * dt = NULL;
       mode_t const filetype = archive_entry_filetype(entry);
       switch (filetype)
