@@ -29,6 +29,69 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "sqsh_writer.h"
 #include "util.h"
 
+struct dirtable_header
+{
+  uint32_t count;
+  uint32_t start_block;
+  uint32_t inode_number;
+};
+
+static _Bool within16(uint32_t const a, uint32_t const b)
+{
+  int64_t const diff = (int64_t) b - (int64_t) a;
+  return diff < 0x7fff && diff > -0x8000;
+}
+
+static _Bool dirtree_dirtable_header_works(struct dirtable_header * const header, struct dirtree_entry * const entry)
+{
+  return header->start_block == meta_address_block(entry->inode->inode_address) && within16(header->inode_number, entry->inode->inode_number);
+}
+
+static size_t dirtree_dirtable_segment_len(struct dirtree * const dt, struct dirtable_header * const header, size_t const offset)
+{
+  for (size_t i = 0; i < dt->addi.dir.nentries - offset; i++)
+    if (!dirtree_dirtable_header_works(header, dt->addi.dir.entries + offset + i))
+      return i;
+  return dt->addi.dir.nentries - offset;
+}
+
+static int dirtree_write_dirtable_segment(struct sqsh_writer * const wr, struct dirtree * const dt, size_t * const offset)
+{
+  struct dirtree const * const first = dt->addi.dir.entries[*offset].inode;
+  struct dirtable_header header = {0, meta_address_block(first->inode_address), first->inode_number};
+  header.count = dirtree_dirtable_segment_len(dt, &header, *offset);
+
+  unsigned char buff[12];
+  le32(buff, header.count - 1);
+  le32(buff + 4, header.start_block);
+  le32(buff + 8, header.inode_number);
+  RETIF(meta_address_error(mdw_put(&wr->dentry_writer, buff, 12)));
+  dt->addi.dir.filesize += 12;
+
+  for (size_t i = 0; i < header.count; i++)
+    {
+      struct dirtree_entry const * const entry = dt->addi.dir.entries + *offset + i;
+      size_t const len_name = strlen(entry->name);
+      RETIF(len_name > 0xff);
+      unsigned char buff[8 + len_name];
+
+      le16(buff, meta_address_offset(entry->inode->inode_address));
+      le16(buff + 2, entry->inode->inode_number - header.inode_number);
+      le16(buff + 4, entry->inode->inode_type - 7);
+      le16(buff + 6, len_name - 1);
+      for (size_t i = 0; i < len_name; i++)
+        buff[i + 8] = entry->name[i];
+
+      RETIF(meta_address_error(mdw_put(&wr->dentry_writer, buff, 8 + len_name)));
+      dt->addi.dir.filesize += 8 + len_name;
+      if (entry->inode->inode_type == SQFS_INODE_TYPE_DIR)
+        dt->nlink++;
+    }
+
+  *offset += header.count;
+  return 0;
+}
+
 static int dirtree_write_dirtable(struct sqsh_writer * const wr, struct dirtree * const dt)
 {
   uint64_t const addr = mdw_put(&wr->dentry_writer, NULL, 0);
@@ -40,28 +103,9 @@ static int dirtree_write_dirtable(struct sqsh_writer * const wr, struct dirtree 
   dt->addi.dir.filesize = 3;
 
   qsort(dt->addi.dir.entries, dt->addi.dir.nentries, sizeof(*dt->addi.dir.entries), dirtree_entry_compare);
-  for (size_t i = 0; i < dt->addi.dir.nentries; i++)
-    {
-      struct dirtree_entry const * const entry = dt->addi.dir.entries + i;
-      size_t const len_name = strlen(entry->name);
-      size_t const len_buff = 20 + len_name;
-      dt->addi.dir.filesize += len_buff;
-      if (entry->inode->inode_type == SQFS_INODE_TYPE_DIR)
-        dt->nlink++;
-
-      unsigned char buff[len_buff];
-      // TODO: re-use header for later entries where possible
-      le32(buff, 0);
-      le32(buff + 4, meta_address_block(entry->inode->inode_address));
-      le32(buff + 8, entry->inode->inode_number);
-      le16(buff + 12, meta_address_offset(entry->inode->inode_address));
-      le16(buff + 14, 0);
-      le16(buff + 16, entry->inode->inode_type - 7);
-      le16(buff + 18, len_name - 1);
-      for (size_t i = 0; i < len_name; i++)
-        buff[i + 20] = entry->name[i];
-      RETIF(meta_address_error(mdw_put(&wr->dentry_writer, buff, len_buff)));
-    }
+  size_t offset = 0;
+  while (offset < dt->addi.dir.nentries)
+    RETIF(dirtree_write_dirtable_segment(wr, dt, &offset));
 
   return 0;
 }
