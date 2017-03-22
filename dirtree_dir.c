@@ -73,7 +73,7 @@ static struct dirtree_entry * dirtree_get_child_entry(struct dirtree * const dt,
   return entry;
 }
 
-static struct dirtree * dirtree_get_child(struct sqsh_writer * const wr, struct dirtree * const dt, char const * name, struct dirtree * (*con)(struct sqsh_writer *))
+static struct dirtree * dirtree_get_child(struct sqsh_writer * const wr, struct dirtree * const dt, char const * name, struct dirtree * (*con)(struct sqsh_writer *) )
 {
   struct dirtree_entry * const entry = dirtree_get_child_entry(dt, name);
   if (entry == NULL)
@@ -118,7 +118,7 @@ struct dirtree * dirtree_get_subdir_for_path(struct sqsh_writer * const wr, stru
   return subdir;
 }
 
-static struct dirtree * dirtree_put_nondir_for_path(struct sqsh_writer * const wr, struct dirtree * const root, char const * const path, struct dirtree * (*con)(struct sqsh_writer *))
+static struct dirtree * dirtree_put_nondir_for_path(struct sqsh_writer * const wr, struct dirtree * const root, char const * const path, struct dirtree * (*con)(struct sqsh_writer *) )
 {
   char tmppath[strlen(path) + 1];
   strcpy(tmppath, path);

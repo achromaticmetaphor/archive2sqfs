@@ -63,6 +63,7 @@ static void sqsh_writer_free(struct sqsh_writer * const wr)
 {
   free(wr->current_block);
   free(wr->ids);
+  free(wr->fragments);
 }
 
 static int sqsh_writer_alloc(struct sqsh_writer * const wr, int const block_log)
@@ -71,7 +72,7 @@ static int sqsh_writer_alloc(struct sqsh_writer * const wr, int const block_log)
   wr->current_fragment = wr->current_block == NULL ? NULL : wr->current_block + ((size_t) 1 << block_log);
   wr->ids = wr->current_fragment == NULL ? NULL : malloc(sizeof(*wr->ids) * 0x10000);
 
-  if (wr->current_fragment == NULL)
+  if (wr->ids == NULL)
     return sqsh_writer_free(wr), ENOMEM;
   return 0;
 }
