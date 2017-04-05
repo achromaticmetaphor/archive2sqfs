@@ -34,7 +34,7 @@ uint32_t dw_write_data(unsigned char const * const buff, size_t const len, FILE 
   if (compress2(zbuff, &zsize, buff, len, 9) != Z_OK)
     return 0xffffffff;
 
-  _Bool const compressed = zsize < len;
+  bool const compressed = zsize < len;
   unsigned char const * const block = compressed ? zbuff : buff;
   size_t const size = compressed ? zsize : len;
 

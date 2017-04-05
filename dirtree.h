@@ -120,8 +120,8 @@ static inline void dirtree_init(struct dirtree * const dt, struct sqsh_writer * 
 
 static inline struct dirtree * dirtree_new(struct sqsh_writer * const wr, void (*init)(struct dirtree *, struct sqsh_writer *))
 {
-  struct dirtree * const dt = malloc(sizeof(*dt));
-  if (dt != NULL)
+  struct dirtree * const dt = reinterpret_cast<dirtree *>(malloc(sizeof(*dt)));
+  if (dt != nullptr)
     init(dt, wr);
   return dt;
 }

@@ -28,16 +28,12 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 int dirtree_entry_compare(void const * const va, void const * const vb)
 {
-  struct dirtree_entry const * const a = va;
-  struct dirtree_entry const * const b = vb;
-  return strcmp(a->name, b->name);
+  return strcmp(reinterpret_cast<dirtree_entry const *>(va)->name, reinterpret_cast<dirtree_entry const *>(vb)->name);
 }
 
 int dirtree_entry_by_name(void const * const va, void const * const vb)
 {
-  char const * const a = va;
-  struct dirtree_entry const * const b = vb;
-  return strcmp(a, b->name);
+  return strcmp(reinterpret_cast<char const *>(va), reinterpret_cast<dirtree_entry const *>(vb)->name);
 }
 
 void dirtree_free(struct dirtree * const dt)

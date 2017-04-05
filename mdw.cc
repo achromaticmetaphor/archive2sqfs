@@ -41,8 +41,8 @@ static int mdw_write_block_compressed(struct mdw * const mdw, size_t const block
   if (table_needed > mdw->table_len)
     {
       size_t const new_table_len = mdw->table_len + rup(table_needed - mdw->table_len, 20);
-      unsigned char * const new_table = realloc(mdw->table, new_table_len);
-      if (new_table == NULL)
+      unsigned char * const new_table = reinterpret_cast<unsigned char *>(realloc(mdw->table, new_table_len));
+      if (new_table == nullptr)
         return ENOMEM;
 
       mdw->table = new_table;
@@ -64,7 +64,7 @@ int mdw_write_block_no_pad(struct mdw * const mdw)
   unsigned char zbuff[zsize];
   compress2(zbuff, &zsize, mdw->buff, mdw->buff_pos, 9);
 
-  _Bool const compressed = zsize < mdw->buff_pos;
+  bool const compressed = zsize < mdw->buff_pos;
   unsigned char * const buff = compressed ? zbuff : mdw->buff;
   size_t const size = compressed ? zsize : mdw->buff_pos;
 

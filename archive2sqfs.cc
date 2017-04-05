@@ -46,7 +46,7 @@ static char const * strip_path(size_t const strip, char const * pathname)
   for (size_t i = 0; i < strip; i++)
     {
       char const * const sep = strchr(pathname, '/');
-      if (sep == NULL)
+      if (sep == nullptr)
         break;
       pathname = sep + 1;
     }
@@ -60,12 +60,12 @@ int main(int argc, char * argv[])
     return usage(argv[0]);
 
   char const * const outfilepath = argv[argc <= 3 ? 1 : 3];
-  char const * infilepath = argc == 3 || argc == 5 ? argv[argc - 1] : NULL;
+  char const * infilepath = argc == 3 || argc == 5 ? argv[argc - 1] : nullptr;
   size_t strip = 0;
 
   if (argc > 3)
     if (!strcmp("--strip", argv[1]))
-      strip = strtoll(argv[2], NULL, 10);
+      strip = strtoll(argv[2], nullptr, 10);
     else
       return usage(argv[0]);
 
@@ -76,13 +76,13 @@ int main(int argc, char * argv[])
     }
 
   struct sqsh_writer writer;
-  _Bool const writer_failed = sqsh_writer_init(&writer, outfilepath, SQFS_BLOCK_LOG_DEFAULT);
-  struct dirtree * const root = writer_failed ? NULL : dirtree_dir_new(&writer);
+  bool const writer_failed = sqsh_writer_init(&writer, outfilepath, SQFS_BLOCK_LOG_DEFAULT);
+  struct dirtree * const root = writer_failed ? nullptr : dirtree_dir_new(&writer);
 
-  FILE * const infile = root == NULL ? NULL : (infilepath == NULL ? stdin : fopen(infilepath, "rb"));
-  struct archive * const archive = infile == NULL ? NULL : archive_read_new();
+  FILE * const infile = root == nullptr ? nullptr : (infilepath == nullptr ? stdin : fopen(infilepath, "rb"));
+  struct archive * const archive = infile == nullptr ? nullptr : archive_read_new();
 
-  _Bool failed = archive == NULL;
+  bool failed = archive == nullptr;
   failed = failed || archive_read_support_filter_all(archive) != ARCHIVE_OK;
   failed = failed || archive_read_support_format_all(archive) != ARCHIVE_OK;
   failed = failed || archive_read_open_FILE(archive, infile) != ARCHIVE_OK;
@@ -94,7 +94,7 @@ int main(int argc, char * argv[])
   while (!failed && archive_read_next_header(archive, &entry) == ARCHIVE_OK)
     {
       char const * const pathname = strip_path(strip, archive_entry_pathname(entry));
-      struct dirtree * dt = NULL;
+      struct dirtree * dt = nullptr;
       mode_t const filetype = archive_entry_filetype(entry);
       switch (filetype)
         {
@@ -104,7 +104,7 @@ int main(int argc, char * argv[])
 
           case AE_IFREG:
             dt = dirtree_put_reg_for_path(&writer, root, pathname);
-            failed = failed || dt == NULL;
+            failed = failed || dt == nullptr;
 
             int64_t i;
             for (i = archive_entry_size(entry); i >= block_size && !failed; i -= block_size)
@@ -144,8 +144,8 @@ int main(int argc, char * argv[])
           default:;
         }
 
-      failed = failed || dt == NULL;
-      if (dt != NULL)
+      failed = failed || dt == nullptr;
+      if (dt != nullptr)
         {
           dt->mode = archive_entry_perm(entry);
           dt->uid = archive_entry_uid(entry);
@@ -161,13 +161,13 @@ int main(int argc, char * argv[])
   if (failed)
     remove(argv[1]);
 
-  if (archive != NULL)
+  if (archive != nullptr)
     archive_read_free(archive);
 
-  if (infile != NULL)
+  if (infile != nullptr)
     fclose(infile);
 
-  if (root != NULL)
+  if (root != nullptr)
     dirtree_free(root);
 
   return failed;

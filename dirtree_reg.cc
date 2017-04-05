@@ -40,7 +40,7 @@ void dirtree_reg_init(struct dirtree * const dt, struct sqsh_writer * const wr)
   dt->addi.reg.fragment = 0xffffffffu;
   dt->addi.reg.offset = 0;
 
-  dt->addi.reg.blocks = NULL;
+  dt->addi.reg.blocks = nullptr;
   dt->addi.reg.nblocks = 0;
   dt->addi.reg.blocks_space = 0;
 }
@@ -55,8 +55,8 @@ static int dirtree_reg_add_block(struct dirtree * const dt, size_t size, long in
   if (dt->addi.reg.nblocks == dt->addi.reg.blocks_space)
     {
       size_t const space = dt->addi.reg.blocks_space + 4;
-      uint32_t * const blocks = realloc(dt->addi.reg.blocks, sizeof(*blocks) * space);
-      if (blocks == NULL)
+      uint32_t * const blocks = reinterpret_cast<uint32_t *>(realloc(dt->addi.reg.blocks, sizeof(*blocks) * space));
+      if (blocks == nullptr)
         return ENOMEM;
 
       dt->addi.reg.blocks = blocks;

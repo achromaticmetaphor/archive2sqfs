@@ -39,7 +39,7 @@ static inline void mdw_init(struct mdw * const mdw)
   mdw->block = 0;
   mdw->buff_pos = 0;
   mdw->table_len = 0;
-  mdw->table = NULL;
+  mdw->table = nullptr;
 }
 
 static inline void mdw_destroy(struct mdw * const mdw)

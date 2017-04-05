@@ -33,8 +33,8 @@ static int dirtree_dirop_prep(struct dirtree * const dt)
   if (dt->addi.dir.nentries == dt->addi.dir.space)
     {
       size_t const space = dt->addi.dir.space + 0x10;
-      struct dirtree_entry * const entries = realloc(dt->addi.dir.entries, sizeof(*entries) * space);
-      if (entries == NULL)
+      struct dirtree_entry * const entries = reinterpret_cast<dirtree_entry *>(realloc(dt->addi.dir.entries, sizeof(*entries) * space));
+      if (entries == nullptr)
         return ENOMEM;
 
       dt->addi.dir.entries = entries;
@@ -52,7 +52,7 @@ void dirtree_dir_init(struct dirtree * const dt, struct sqsh_writer * const wr)
 
   dt->addi.dir.nentries = 0;
   dt->addi.dir.space = 0;
-  dt->addi.dir.entries = NULL;
+  dt->addi.dir.entries = nullptr;
 }
 
 struct dirtree * dirtree_dir_new(struct sqsh_writer * const wr)
@@ -62,12 +62,12 @@ struct dirtree * dirtree_dir_new(struct sqsh_writer * const wr)
 
 static struct dirtree_entry * dirtree_get_child_entry(struct dirtree * const dt, char const * name)
 {
-  struct dirtree_entry * entry = lfind(name, dt->addi.dir.entries, &dt->addi.dir.nentries, sizeof(*entry), dirtree_entry_by_name);
-  if (entry == NULL && !dirtree_dirop_prep(dt))
+  struct dirtree_entry * entry = reinterpret_cast<dirtree_entry *>(lfind(name, dt->addi.dir.entries, &dt->addi.dir.nentries, sizeof(*entry), dirtree_entry_by_name));
+  if (entry == nullptr && !dirtree_dirop_prep(dt))
     {
       entry = dt->addi.dir.entries + dt->addi.dir.nentries++;
       entry->name = name;
-      entry->inode = NULL;
+      entry->inode = nullptr;
     }
 
   return entry;
@@ -76,18 +76,18 @@ static struct dirtree_entry * dirtree_get_child_entry(struct dirtree * const dt,
 static struct dirtree * dirtree_get_child(struct sqsh_writer * const wr, struct dirtree * const dt, char const * name, struct dirtree * (*con)(struct sqsh_writer *) )
 {
   struct dirtree_entry * const entry = dirtree_get_child_entry(dt, name);
-  if (entry == NULL)
-    return NULL;
+  if (entry == nullptr)
+    return nullptr;
 
-  if (entry->inode == NULL)
+  if (entry->inode == nullptr)
     {
       entry->name = strdup(name);
-      entry->inode = entry->name == NULL ? NULL : con(wr);
-      if (entry->inode == NULL)
+      entry->inode = entry->name == nullptr ? nullptr : con(wr);
+      if (entry->inode == nullptr)
         {
           free((char *) entry->name);
           dt->addi.dir.nentries--;
-          return NULL;
+          return nullptr;
         }
     }
 
@@ -111,8 +111,8 @@ struct dirtree * dirtree_get_subdir_for_path(struct sqsh_writer * const wr, stru
 
   char * ststate;
   struct dirtree * subdir = dt;
-  for (char const * component = strtok_r(pathtokens, "/", &ststate); component != NULL; component = strtok_r(NULL, "/", &ststate))
-    if (component[0] != 0 && subdir != NULL)
+  for (char const * component = strtok_r(pathtokens, "/", &ststate); component != nullptr; component = strtok_r(nullptr, "/", &ststate))
+    if (component[0] != 0 && subdir != nullptr)
       subdir = dirtree_get_subdir(wr, subdir, component);
 
   return subdir;
@@ -124,14 +124,14 @@ static struct dirtree * dirtree_put_nondir_for_path(struct sqsh_writer * const w
   strcpy(tmppath, path);
 
   char * const sep = strrchr(tmppath, '/');
-  char * const name = sep == NULL ? tmppath : sep + 1;
-  char * const parent = sep == NULL ? "/" : tmppath;
+  char * const name = sep == nullptr ? tmppath : sep + 1;
+  char const * const parent = sep == nullptr ? "/" : tmppath;
 
-  if (sep != NULL)
+  if (sep != nullptr)
     *sep = 0;
 
   struct dirtree * parent_dt = dirtree_get_subdir_for_path(wr, root, parent);
-  return parent_dt == NULL ? NULL : dirtree_get_child(wr, parent_dt, name, con);
+  return parent_dt == nullptr ? nullptr : dirtree_get_child(wr, parent_dt, name, con);
 }
 
 struct dirtree * dirtree_put_reg_for_path(struct sqsh_writer * const wr, struct dirtree * const root, char const * const path)
@@ -142,12 +142,12 @@ struct dirtree * dirtree_put_reg_for_path(struct sqsh_writer * const wr, struct 
 struct dirtree * dirtree_put_sym_for_path(struct sqsh_writer * const wr, struct dirtree * const root, char const * const path, char const * const target)
 {
   struct dirtree * const sym = dirtree_put_nondir_for_path(wr, root, path, dirtree_sym_new);
-  if (sym == NULL)
-    return NULL;
+  if (sym == nullptr)
+    return nullptr;
 
   sym->addi.sym.target = strdup(target);
-  if (sym->addi.sym.target == NULL)
-    return dirtree_free(sym), NULL;
+  if (sym->addi.sym.target == nullptr)
+    return dirtree_free(sym), nullptr;
 
   return sym;
 }
@@ -155,7 +155,7 @@ struct dirtree * dirtree_put_sym_for_path(struct sqsh_writer * const wr, struct 
 struct dirtree * dirtree_put_dev_for_path(struct sqsh_writer * const wr, struct dirtree * const root, char const * const path, uint16_t type, uint32_t rdev)
 {
   struct dirtree * const dev = dirtree_put_nondir_for_path(wr, root, path, dirtree_dev_new);
-  if (dev != NULL)
+  if (dev != nullptr)
     {
       dev->inode_type = type;
       dev->addi.dev.rdev = rdev;
@@ -167,7 +167,7 @@ struct dirtree * dirtree_put_dev_for_path(struct sqsh_writer * const wr, struct 
 struct dirtree * dirtree_put_ipc_for_path(struct sqsh_writer * const wr, struct dirtree * const root, char const * const path, uint16_t type)
 {
   struct dirtree * const ipc = dirtree_put_nondir_for_path(wr, root, path, dirtree_ipc_new);
-  if (ipc != NULL)
+  if (ipc != nullptr)
     ipc->inode_type = type;
 
   return ipc;

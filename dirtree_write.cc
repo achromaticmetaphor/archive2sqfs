@@ -36,13 +36,13 @@ struct dirtable_header
   uint32_t inode_number;
 };
 
-static _Bool within16(uint32_t const a, uint32_t const b)
+static bool within16(uint32_t const a, uint32_t const b)
 {
   int64_t const diff = (int64_t) b - (int64_t) a;
   return diff < 0x7fff && diff > -0x8000;
 }
 
-static _Bool dirtree_dirtable_header_works(struct dirtable_header * const header, struct dirtree_entry * const entry)
+static bool dirtree_dirtable_header_works(struct dirtable_header * const header, struct dirtree_entry * const entry)
 {
   return header->start_block == meta_address_block(entry->inode->inode_address) && within16(header->inode_number, entry->inode->inode_number);
 }
@@ -94,7 +94,7 @@ static int dirtree_write_dirtable_segment(struct sqsh_writer * const wr, struct 
 
 static int dirtree_write_dirtable(struct sqsh_writer * const wr, struct dirtree * const dt)
 {
-  uint64_t const addr = mdw_put(&wr->dentry_writer, NULL, 0);
+  uint64_t const addr = mdw_put(&wr->dentry_writer, nullptr, 0);
   RETIF(meta_address_error(addr));
 
   dt->addi.dir.dtable_start_block = meta_address_block(addr);
@@ -110,7 +110,7 @@ static int dirtree_write_dirtable(struct sqsh_writer * const wr, struct dirtree 
   return 0;
 }
 
-static inline void dirtree_inode_common(struct sqsh_writer * const wr, struct dirtree * const dt, unsigned char out[static 16])
+static inline void dirtree_inode_common(struct sqsh_writer * const wr, struct dirtree * const dt, unsigned char out[16])
 {
   le16(out, dt->inode_type);
   le16(out + 2, dt->mode);
@@ -128,7 +128,7 @@ static int dirtree_reg_write_inode_blocks(struct sqsh_writer * const wr, struct 
   return meta_address_error(mdw_put(&wr->inode_writer, buff, dt->addi.reg.nblocks * 4));
 }
 
-static inline size_t dirtree_write_inode_dir(unsigned char buff[static 40], struct dirtree * const dt, uint32_t const parent_inode_number)
+static inline size_t dirtree_write_inode_dir(unsigned char buff[40], struct dirtree * const dt, uint32_t const parent_inode_number)
 {
   if (dt->addi.dir.filesize > 0xffffu || dt->xattr != 0xffffffffu)
     {
@@ -153,7 +153,7 @@ static inline size_t dirtree_write_inode_dir(unsigned char buff[static 40], stru
     }
 }
 
-static inline size_t dirtree_write_inode_reg(unsigned char buff[static 56], struct dirtree * const dt)
+static inline size_t dirtree_write_inode_reg(unsigned char buff[56], struct dirtree * const dt)
 {
   if (dt->addi.reg.start_block > 0xffffu || dt->addi.reg.file_size > 0xffffu || dt->xattr != 0xffffffffu || dt->nlink != 1)
     {
@@ -183,7 +183,7 @@ static int dirtree_write_inode(struct sqsh_writer * const writer, struct dirtree
     for (size_t i = 0; i < dt->addi.dir.nentries; i++)
       RETIF(dirtree_write_inode(writer, dt->addi.dir.entries[i].inode, dt->inode_number));
 
-  _Bool const has_xattr = dt->xattr != 0xffffffffu;
+  bool const has_xattr = dt->xattr != 0xffffffffu;
   switch (dt->inode_type)
     {
       case SQFS_INODE_TYPE_DIR:

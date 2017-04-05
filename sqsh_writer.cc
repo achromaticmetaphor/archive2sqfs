@@ -68,11 +68,11 @@ static void sqsh_writer_free(struct sqsh_writer * const wr)
 
 static int sqsh_writer_alloc(struct sqsh_writer * const wr, int const block_log)
 {
-  wr->current_block = malloc((size_t) 2 << block_log);
-  wr->current_fragment = wr->current_block == NULL ? NULL : wr->current_block + ((size_t) 1 << block_log);
-  wr->ids = wr->current_fragment == NULL ? NULL : malloc(sizeof(*wr->ids) * 0x10000);
+  wr->current_block = reinterpret_cast<unsigned char *>(malloc((size_t) 2 << block_log));
+  wr->current_fragment = wr->current_block == nullptr ? nullptr : wr->current_block + ((size_t) 1 << block_log);
+  wr->ids = wr->current_fragment == nullptr ? nullptr : reinterpret_cast<uint32_t *>(malloc(sizeof(*wr->ids) * 0x10000));
 
-  if (wr->ids == NULL)
+  if (wr->ids == nullptr)
     return sqsh_writer_free(wr), ENOMEM;
   return 0;
 }
@@ -89,12 +89,12 @@ int sqsh_writer_init(struct sqsh_writer * const wr, char const * const path, int
   sqfs_super_init(&wr->super, block_log);
   wr->current_pos = 0;
   wr->fragment_pos = 0;
-  wr->fragments = NULL;
+  wr->fragments = nullptr;
   wr->fragment_space = 0;
   wr->nids = 0;
 
   wr->outfile = fopen(path, "wb");
-  return wr->outfile == NULL || fseek(wr->outfile, 96L, SEEK_SET);
+  return wr->outfile == nullptr || fseek(wr->outfile, 96L, SEEK_SET);
 }
 
 int sqsh_writer_destroy(struct sqsh_writer * const wr)
@@ -102,7 +102,7 @@ int sqsh_writer_destroy(struct sqsh_writer * const wr)
   sqsh_writer_free(wr);
   mdw_destroy(&wr->inode_writer);
   mdw_destroy(&wr->dentry_writer);
-  return wr->outfile == NULL || fclose(wr->outfile);
+  return wr->outfile == nullptr || fclose(wr->outfile);
 }
 
 static int sqsh_writer_append_fragment(struct sqsh_writer * const wr, uint32_t const size, uint64_t const start_block)
@@ -110,8 +110,8 @@ static int sqsh_writer_append_fragment(struct sqsh_writer * const wr, uint32_t c
   if (wr->super.fragments == wr->fragment_space)
     {
       size_t const space = wr->fragment_space + 0x100;
-      struct fragment_entry * const fragments = realloc(wr->fragments, sizeof(*fragments) * space);
-      if (fragments == NULL)
+      struct fragment_entry * const fragments = reinterpret_cast<fragment_entry *>(realloc(wr->fragments, sizeof(*fragments) * space));
+      if (fragments == nullptr)
         return ENOMEM;
 
       wr->fragment_space = space;
@@ -228,12 +228,12 @@ int sqsh_writer_write_header(struct sqsh_writer * const writer)
     return error || fwrite(indices, 1, index_count * 8, wr->outfile) != index_count * 8;                          \
   }
 
-static inline void sqsh_writer_id_table_entry(unsigned char buff[static 4], struct sqsh_writer * const wr, size_t const i)
+static inline void sqsh_writer_id_table_entry(unsigned char buff[4], struct sqsh_writer * const wr, size_t const i)
 {
   le32(buff, wr->ids[i]);
 }
 
-static inline void sqsh_writer_fragment_table_entry(unsigned char buff[static 16], struct sqsh_writer * const wr, size_t const i)
+static inline void sqsh_writer_fragment_table_entry(unsigned char buff[16], struct sqsh_writer * const wr, size_t const i)
 {
   struct fragment_entry const * const frag = wr->fragments + i;
   le64(buff, frag->start_block);
