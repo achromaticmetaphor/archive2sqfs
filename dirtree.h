@@ -23,6 +23,8 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <vector>
+
 #include "sqsh_writer.h"
 
 struct dirtree_entry
@@ -33,9 +35,8 @@ struct dirtree_entry
 
 struct dirtree_addi_dir
 {
-  size_t nentries;
   size_t space;
-  struct dirtree_entry * entries;
+  std::vector<dirtree_entry> * entries;
   uint32_t filesize;
   uint32_t dtable_start_block;
   uint16_t dtable_start_offset;
@@ -49,9 +50,7 @@ struct dirtree_addi_reg
   uint32_t fragment;
   uint32_t offset;
 
-  uint32_t * blocks;
-  size_t nblocks;
-  size_t blocks_space;
+  std::vector<uint32_t> * blocks;
 };
 
 struct dirtree_addi_sym
@@ -120,9 +119,8 @@ static inline void dirtree_init(struct dirtree * const dt, struct sqsh_writer * 
 
 static inline struct dirtree * dirtree_new(struct sqsh_writer * const wr, void (*init)(struct dirtree *, struct sqsh_writer *))
 {
-  struct dirtree * const dt = reinterpret_cast<dirtree *>(malloc(sizeof(*dt)));
-  if (dt != nullptr)
-    init(dt, wr);
+  dirtree * const dt = new dirtree();
+  init(dt, wr);
   return dt;
 }
 

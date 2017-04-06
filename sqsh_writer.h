@@ -22,6 +22,8 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdio.h>
 
+#include <vector>
+
 #include <search.h>
 
 #include "mdw.h"
@@ -40,7 +42,6 @@ struct sqfs_super
   //  uint32_t inodes;
   //  uint32_t mkfstime;
   //  uint32_t blocksize;
-  uint32_t fragments;
 
   uint16_t compression;
   uint16_t block_log;
@@ -70,8 +71,7 @@ struct sqsh_writer
   size_t current_pos;
   unsigned char * current_fragment;
   size_t fragment_pos;
-  struct fragment_entry * fragments;
-  size_t fragment_space;
+  std::vector<fragment_entry> fragments;
   uint32_t * ids;
   size_t nids;
 };

@@ -22,6 +22,9 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdlib.h>
 #include <string.h>
 
+#include <algorithm>
+#include <vector>
+
 #include <search.h>
 
 #include "dirtree.h"
@@ -30,16 +33,6 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 static int dirtree_dirop_prep(struct dirtree * const dt)
 {
-  if (dt->addi.dir.nentries == dt->addi.dir.space)
-    {
-      size_t const space = dt->addi.dir.space + 0x10;
-      struct dirtree_entry * const entries = reinterpret_cast<dirtree_entry *>(realloc(dt->addi.dir.entries, sizeof(*entries) * space));
-      if (entries == nullptr)
-        return ENOMEM;
-
-      dt->addi.dir.entries = entries;
-      dt->addi.dir.space = space;
-    }
   return 0;
 }
 
@@ -50,9 +43,8 @@ void dirtree_dir_init(struct dirtree * const dt, struct sqsh_writer * const wr)
   dt->inode_type = SQFS_INODE_TYPE_DIR;
   dt->mode = 0755;
 
-  dt->addi.dir.nentries = 0;
   dt->addi.dir.space = 0;
-  dt->addi.dir.entries = nullptr;
+  dt->addi.dir.entries = new std::vector<dirtree_entry>();
 }
 
 struct dirtree * dirtree_dir_new(struct sqsh_writer * const wr)
@@ -62,15 +54,13 @@ struct dirtree * dirtree_dir_new(struct sqsh_writer * const wr)
 
 static struct dirtree_entry * dirtree_get_child_entry(struct dirtree * const dt, char const * name)
 {
-  struct dirtree_entry * entry = reinterpret_cast<dirtree_entry *>(lfind(name, dt->addi.dir.entries, &dt->addi.dir.nentries, sizeof(*entry), dirtree_entry_by_name));
-  if (entry == nullptr && !dirtree_dirop_prep(dt))
+  auto entry = std::find_if(dt->addi.dir.entries->begin(), dt->addi.dir.entries->end(), [&](auto entry) -> bool { return strcmp(name, entry.name) == 0; });
+  if (entry == dt->addi.dir.entries->end())
     {
-      entry = dt->addi.dir.entries + dt->addi.dir.nentries++;
-      entry->name = name;
-      entry->inode = nullptr;
+      dt->addi.dir.entries->push_back({name, nullptr});
+      return &dt->addi.dir.entries->back();
     }
-
-  return entry;
+  return &*entry;
 }
 
 static struct dirtree * dirtree_get_child(struct sqsh_writer * const wr, struct dirtree * const dt, char const * name, struct dirtree * (*con)(struct sqsh_writer *) )
@@ -86,7 +76,7 @@ static struct dirtree * dirtree_get_child(struct sqsh_writer * const wr, struct 
       if (entry->inode == nullptr)
         {
           free((char *) entry->name);
-          dt->addi.dir.nentries--;
+          dt->addi.dir.entries->pop_back();
           return nullptr;
         }
     }

@@ -40,36 +40,35 @@ void dirtree_free(struct dirtree * const dt)
 {
   if (dt->inode_type == SQFS_INODE_TYPE_DIR)
     {
-      for (size_t i = 0; i < dt->addi.dir.nentries; i++)
+      for (auto entry : *dt->addi.dir.entries)
         {
-          dirtree_free(dt->addi.dir.entries[i].inode);
-          free((char *) dt->addi.dir.entries[i].name);
+          dirtree_free(entry.inode);
+          free(const_cast<char *>(entry.name));
         }
 
-      free(dt->addi.dir.entries);
+      delete dt->addi.dir.entries;
     }
   else if (dt->inode_type == SQFS_INODE_TYPE_REG)
-    free(dt->addi.reg.blocks);
+    delete dt->addi.reg.blocks;
   else if (dt->inode_type == SQFS_INODE_TYPE_SYM)
     free(dt->addi.sym.target);
 
-  free(dt);
+  delete dt;
 }
 
 static void dirtree_dump_with_prefix(struct dirtree const * const dt, char const * const prefix)
 {
   puts(prefix);
-  for (size_t i = 0; i < dt->addi.dir.nentries; i++)
+  for (auto entry : *dt->addi.dir.entries)
     {
-      struct dirtree_entry const * const entry = dt->addi.dir.entries + i;
-      if (entry->inode->inode_type == SQFS_INODE_TYPE_DIR)
+      if (entry.inode->inode_type == SQFS_INODE_TYPE_DIR)
         {
-          char prefix_[strlen(prefix) + strlen(entry->name) + 2];
-          sprintf(prefix_, "%s/%s", prefix, entry->name);
-          dirtree_dump_with_prefix(entry->inode, prefix_);
+          char prefix_[strlen(prefix) + strlen(entry.name) + 2];
+          sprintf(prefix_, "%s/%s", prefix, entry.name);
+          dirtree_dump_with_prefix(entry.inode, prefix_);
         }
-      if (entry->inode->inode_type == SQFS_INODE_TYPE_REG)
-        printf("\t%s\n", entry->name);
+      if (entry.inode->inode_type == SQFS_INODE_TYPE_REG)
+        printf("\t%s\n", entry.name);
     }
 }
 

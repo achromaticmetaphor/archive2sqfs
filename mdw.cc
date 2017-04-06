@@ -35,30 +35,21 @@ static inline size_t rup(size_t const a, size_t const s)
   return ((size_t) 1 << s) * factor;
 }
 
-static int mdw_write_block_compressed(struct mdw * const mdw, size_t const block_len, unsigned char const * const block, uint16_t const bsize)
+static void mdw_write_block_compressed(struct mdw * const mdw, size_t const block_len, unsigned char const * const block, uint16_t const bsize)
 {
-  size_t const table_needed = mdw->block + block_len + 2;
-  if (table_needed > mdw->table_len)
-    {
-      size_t const new_table_len = mdw->table_len + rup(table_needed - mdw->table_len, 20);
-      unsigned char * const new_table = reinterpret_cast<unsigned char *>(realloc(mdw->table, new_table_len));
-      if (new_table == nullptr)
-        return ENOMEM;
+  uint8_t tmp[2];
+  le16(tmp, bsize);
+  mdw->table.push_back(tmp[0]);
+  mdw->table.push_back(tmp[1]);
 
-      mdw->table = new_table;
-      mdw->table_len = new_table_len;
-    }
-
-  le16(mdw->table + mdw->block, bsize);
-  memcpy(mdw->table + mdw->block + 2, block, block_len);
-  mdw->block += block_len + 2;
-  return 0;
+  for (std::size_t i = 0; i < block_len; ++i)
+    mdw->table.push_back(block[i]);
 }
 
-int mdw_write_block_no_pad(struct mdw * const mdw)
+void mdw_write_block_no_pad(struct mdw * const mdw)
 {
   if (mdw->buff_pos == 0)
-    return 0;
+    return;
 
   unsigned long int zsize = compressBound(mdw->buff_pos);
   unsigned char zbuff[zsize];
@@ -69,19 +60,19 @@ int mdw_write_block_no_pad(struct mdw * const mdw)
   size_t const size = compressed ? zsize : mdw->buff_pos;
 
   mdw->buff_pos = 0;
-  return mdw_write_block_compressed(mdw, size, buff, compressed ? size : (size | SQFS_META_BLOCK_COMPRESSED_BIT));
+  mdw_write_block_compressed(mdw, size, buff, compressed ? size : (size | SQFS_META_BLOCK_COMPRESSED_BIT));
 }
 
-int mdw_write_block(struct mdw * const mdw)
+void mdw_write_block(struct mdw * const mdw)
 {
   memset(mdw->buff + mdw->buff_pos, 0, SQFS_META_BLOCK_SIZE - mdw->buff_pos);
   mdw->buff_pos = SQFS_META_BLOCK_SIZE;
-  return mdw_write_block_no_pad(mdw);
+  mdw_write_block_no_pad(mdw);
 }
 
 uint64_t mdw_put(struct mdw * const mdw, unsigned char const * b, size_t len)
 {
-  uint64_t const addr = meta_address(mdw->block, mdw->buff_pos);
+  uint64_t const addr = meta_address(mdw->table.size(), mdw->buff_pos);
 
   while (len != 0)
     {
@@ -90,8 +81,8 @@ uint64_t mdw_put(struct mdw * const mdw, unsigned char const * b, size_t len)
 
       memcpy(mdw->buff + mdw->buff_pos, b, added);
       mdw->buff_pos += added;
-      if (mdw->buff_pos == SQFS_META_BLOCK_SIZE && mdw_write_block(mdw))
-        return meta_address_from_error(1);
+      if (mdw->buff_pos == SQFS_META_BLOCK_SIZE)
+        mdw_write_block(mdw);
 
       len -= added;
       b += added;

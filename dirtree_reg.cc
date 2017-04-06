@@ -40,9 +40,7 @@ void dirtree_reg_init(struct dirtree * const dt, struct sqsh_writer * const wr)
   dt->addi.reg.fragment = 0xffffffffu;
   dt->addi.reg.offset = 0;
 
-  dt->addi.reg.blocks = nullptr;
-  dt->addi.reg.nblocks = 0;
-  dt->addi.reg.blocks_space = 0;
+  dt->addi.reg.blocks = new std::vector<uint32_t>();
 }
 
 struct dirtree * dirtree_reg_new(struct sqsh_writer * const wr)
@@ -50,24 +48,12 @@ struct dirtree * dirtree_reg_new(struct sqsh_writer * const wr)
   return dirtree_new(wr, dirtree_reg_init);
 }
 
-static int dirtree_reg_add_block(struct dirtree * const dt, size_t size, long int const start_block)
+static void dirtree_reg_add_block(struct dirtree * const dt, size_t size, long int const start_block)
 {
-  if (dt->addi.reg.nblocks == dt->addi.reg.blocks_space)
-    {
-      size_t const space = dt->addi.reg.blocks_space + 4;
-      uint32_t * const blocks = reinterpret_cast<uint32_t *>(realloc(dt->addi.reg.blocks, sizeof(*blocks) * space));
-      if (blocks == nullptr)
-        return ENOMEM;
-
-      dt->addi.reg.blocks = blocks;
-      dt->addi.reg.blocks_space = space;
-    }
-
-  if (dt->addi.reg.nblocks == 0)
+  if (dt->addi.reg.blocks->size() == 0)
     dt->addi.reg.start_block = start_block;
 
-  dt->addi.reg.blocks[dt->addi.reg.nblocks++] = size;
-  return 0;
+  dt->addi.reg.blocks->push_back(size);
 }
 
 int dirtree_reg_flush(struct sqsh_writer * const wr, struct dirtree * const dt)
@@ -76,11 +62,11 @@ int dirtree_reg_flush(struct sqsh_writer * const wr, struct dirtree * const dt)
     return 0;
 
   size_t const block_size = (size_t) 1 << wr->super.block_log;
-  if (wr->current_pos < block_size && dt->addi.reg.nblocks == 0)
+  if (wr->current_pos < block_size && dt->addi.reg.blocks->size() == 0)
     {
       dt->addi.reg.offset = sqsh_writer_put_fragment(wr, wr->current_block, wr->current_pos);
       RETIF(dt->addi.reg.offset == block_size);
-      dt->addi.reg.fragment = wr->super.fragments;
+      dt->addi.reg.fragment = wr->fragments.size();
     }
   else
     {
@@ -90,7 +76,7 @@ int dirtree_reg_flush(struct sqsh_writer * const wr, struct dirtree * const dt)
       uint32_t const bsize = dw_write_data(wr->current_block, wr->current_pos, wr->outfile);
       RETIF(bsize == 0xffffffff);
 
-      RETIF(dirtree_reg_add_block(dt, bsize, tell));
+      dirtree_reg_add_block(dt, bsize, tell);
     }
 
   wr->current_pos = 0;
