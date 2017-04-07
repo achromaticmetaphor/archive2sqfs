@@ -116,8 +116,8 @@ static inline void dirtree_inode_common(struct sqsh_writer * const wr, struct di
 {
   le16(out, dt->inode_type);
   le16(out + 2, dt->mode);
-  le16(out + 4, sqsh_writer_id_lookup(wr, dt->uid));
-  le16(out + 6, sqsh_writer_id_lookup(wr, dt->gid));
+  le16(out + 4, wr->id_lookup(dt->uid));
+  le16(out + 6, wr->id_lookup(dt->gid));
   le32(out + 8, dt->mtime);
   le32(out + 12, dt->inode_number);
 }

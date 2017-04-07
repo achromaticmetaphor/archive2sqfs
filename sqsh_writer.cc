@@ -60,7 +60,6 @@ static void sqfs_super_init(struct sqfs_super * const super, int const block_log
 
 static void sqsh_writer_free(struct sqsh_writer * const wr)
 {
-  delete[] wr->ids;
   delete[] wr->current_fragment;
   delete[] wr->current_block;
 }
@@ -69,7 +68,6 @@ int sqsh_writer_init(struct sqsh_writer * const wr, char const * const path, int
 {
   wr->current_block = new unsigned char[1 << block_log];
   wr->current_fragment = new unsigned char[1 << block_log];
-  wr->ids = new uint32_t[0x10000];
 
   wr->next_inode = 1;
   mdw_init(&wr->dentry_writer);
@@ -78,7 +76,6 @@ int sqsh_writer_init(struct sqsh_writer * const wr, char const * const path, int
   sqfs_super_init(&wr->super, block_log);
   wr->current_pos = 0;
   wr->fragment_pos = 0;
-  wr->nids = 0;
 
   wr->outfile = fopen(path, "wb");
   return wr->outfile == nullptr || fseek(wr->outfile, 96L, SEEK_SET);
@@ -147,7 +144,7 @@ int sqsh_writer_write_header(struct sqsh_writer * const writer)
   le16(header + 20, writer->super.compression);
   le16(header + 22, writer->super.block_log);
   le16(header + 24, writer->super.flags);
-  le16(header + 26, writer->nids);
+  le16(header + 26, writer->ids.size());
   le16(header + 28, SQFS_MAJOR);
   le16(header + 30, SQFS_MINOR);
 
@@ -170,7 +167,7 @@ int sqsh_writer_write_header(struct sqsh_writer * const writer)
 #define SQSH_WRITER_WRITE_INDEXED_TABLE_DEFN(TABLE, ENTRY_LB, COUNT_FIELD)                                        \
   static int sqsh_writer_write_##TABLE##_table(struct sqsh_writer * const wr)                                     \
   {                                                                                                               \
-    size_t const index_count = (wr->COUNT_FIELD >> ITD_SHIFT(ENTRY_LB)) + ((wr->nids & ITD_MASK(ENTRY_LB)) != 0); \
+    size_t const index_count = (wr->COUNT_FIELD >> ITD_SHIFT(ENTRY_LB)) + ((wr->ids.size() & ITD_MASK(ENTRY_LB)) != 0); \
     unsigned char indices[index_count * 8];                                                                       \
     struct mdw mdw;                                                                                               \
     mdw_init(&mdw);                                                                                               \
@@ -202,7 +199,7 @@ int sqsh_writer_write_header(struct sqsh_writer * const writer)
 
 static inline void sqsh_writer_id_table_entry(unsigned char buff[4], struct sqsh_writer * const wr, size_t const i)
 {
-  le32(buff, wr->ids[i]);
+  le32(buff, wr->rids[i]);
 }
 
 static inline void sqsh_writer_fragment_table_entry(unsigned char buff[16], struct sqsh_writer * const wr, size_t const i)
@@ -213,7 +210,7 @@ static inline void sqsh_writer_fragment_table_entry(unsigned char buff[16], stru
   le32(buff + 12, 0);
 }
 
-SQSH_WRITER_WRITE_INDEXED_TABLE_DEFN(id, 2, nids)
+SQSH_WRITER_WRITE_INDEXED_TABLE_DEFN(id, 2, rids.size())
 SQSH_WRITER_WRITE_INDEXED_TABLE_DEFN(fragment, 4, fragments.size())
 
 static int sqsh_writer_write_inode_table(struct sqsh_writer * const wr)
