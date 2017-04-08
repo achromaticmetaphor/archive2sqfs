@@ -52,15 +52,17 @@ struct dirtable_header
 
 static size_t dirtree_dirtable_segment_len(struct dirtree * const dt, struct dirtable_header * const header, size_t const offset)
 {
-  for (size_t i = 0; i < dt->addi.dir.entries->size() - offset; ++i)
-    if (!header->works((*dt->addi.dir.entries)[offset + i]))
+  dirtree_dir & dir = *static_cast<dirtree_dir *>(dt);
+  for (size_t i = 0; i < dir.entries->size() - offset; ++i)
+    if (!header->works((*dir.entries)[offset + i]))
       return i;
-  return dt->addi.dir.entries->size() - offset;
+  return dir.entries->size() - offset;
 }
 
 static int dirtree_write_dirtable_segment(struct sqsh_writer * const wr, struct dirtree * const dt, size_t * const offset)
 {
-  std::shared_ptr<dirtree const> const first = (*dt->addi.dir.entries)[*offset].inode;
+  dirtree_dir & dir = *static_cast<dirtree_dir *>(dt);
+  std::shared_ptr<dirtree const> const first = (*dir.entries)[*offset].inode;
   struct dirtable_header header = {0, meta_address_block(first->inode_address), first->inode_number};
   header.count = dirtree_dirtable_segment_len(dt, &header, *offset);
 
@@ -69,11 +71,11 @@ static int dirtree_write_dirtable_segment(struct sqsh_writer * const wr, struct 
   le32(buff + 4, header.start_block);
   le32(buff + 8, header.inode_number);
   RETIF(meta_address_error(mdw_put(&wr->dentry_writer, buff, 12)));
-  dt->addi.dir.filesize += 12;
+  dir.filesize += 12;
 
   for (size_t i = 0; i < header.count; i++)
     {
-      dirtree_entry const & entry = (*dt->addi.dir.entries)[*offset + i];
+      dirtree_entry const & entry = (*dir.entries)[*offset + i];
       size_t const len_name = strlen(entry.name);
       RETIF(len_name > 0xff);
       unsigned char buff[8 + len_name];
@@ -86,7 +88,7 @@ static int dirtree_write_dirtable_segment(struct sqsh_writer * const wr, struct 
         buff[i + 8] = entry.name[i];
 
       RETIF(meta_address_error(mdw_put(&wr->dentry_writer, buff, 8 + len_name)));
-      dt->addi.dir.filesize += 8 + len_name;
+      dir.filesize += 8 + len_name;
       if (entry.inode->inode_type == SQFS_INODE_TYPE_DIR)
         dt->nlink++;
     }
@@ -97,17 +99,18 @@ static int dirtree_write_dirtable_segment(struct sqsh_writer * const wr, struct 
 
 static int dirtree_write_dirtable(struct sqsh_writer * const wr, struct dirtree * const dt)
 {
+  dirtree_dir & dir = *static_cast<dirtree_dir *>(dt);
   uint64_t const addr = mdw_put(&wr->dentry_writer, nullptr, 0);
   RETIF(meta_address_error(addr));
 
-  dt->addi.dir.dtable_start_block = meta_address_block(addr);
-  dt->addi.dir.dtable_start_offset = meta_address_offset(addr);
+  dir.dtable_start_block = meta_address_block(addr);
+  dir.dtable_start_offset = meta_address_offset(addr);
   dt->nlink = 2;
-  dt->addi.dir.filesize = 3;
+  dir.filesize = 3;
 
-  std::sort(dt->addi.dir.entries->begin(), dt->addi.dir.entries->end(), [](auto a, auto b) -> bool { return strcmp(a.name, b.name) < 0; });
+  std::sort(dir.entries->begin(), dir.entries->end(), [](auto a, auto b) -> bool { return strcmp(a.name, b.name) < 0; });
   size_t offset = 0;
-  while (offset < dt->addi.dir.entries->size())
+  while (offset < dir.entries->size())
     RETIF(dirtree_write_dirtable_segment(wr, dt, &offset));
 
   return 0;
@@ -125,32 +128,34 @@ static inline void dirtree_inode_common(struct sqsh_writer * const wr, struct di
 
 static int dirtree_reg_write_inode_blocks(struct sqsh_writer * const wr, struct dirtree * const dt)
 {
-  unsigned char buff[dt->addi.reg.blocks->size() * 4];
-  for (size_t i = 0; i < dt->addi.reg.blocks->size(); i++)
-    le32(buff + i * 4, (*dt->addi.reg.blocks)[i]);
-  return meta_address_error(mdw_put(&wr->inode_writer, buff, dt->addi.reg.blocks->size() * 4));
+  dirtree_reg & reg = *static_cast<dirtree_reg *>(dt);
+  unsigned char buff[reg.blocks->size() * 4];
+  for (size_t i = 0; i < reg.blocks->size(); i++)
+    le32(buff + i * 4, (*reg.blocks)[i]);
+  return meta_address_error(mdw_put(&wr->inode_writer, buff, reg.blocks->size() * 4));
 }
 
 static inline size_t dirtree_write_inode_dir(unsigned char buff[40], struct dirtree * const dt, uint32_t const parent_inode_number)
 {
-  if (dt->addi.dir.filesize > 0xffffu || dt->xattr != 0xffffffffu)
+  dirtree_dir & dir = *static_cast<dirtree_dir *>(dt);
+  if (dir.filesize > 0xffffu || dt->xattr != 0xffffffffu)
     {
       le32(buff + 16, dt->nlink);
-      le32(buff + 20, dt->addi.dir.filesize);
-      le32(buff + 24, dt->addi.dir.dtable_start_block);
+      le32(buff + 20, dir.filesize);
+      le32(buff + 24, dir.dtable_start_block);
       le32(buff + 28, parent_inode_number);
       le16(buff + 32, 0);
-      le16(buff + 34, dt->addi.dir.dtable_start_offset);
+      le16(buff + 34, dir.dtable_start_offset);
       le32(buff + 36, dt->xattr);
       return 40;
     }
   else
     {
       le16(buff, dt->inode_type - 7);
-      le32(buff + 16, dt->addi.dir.dtable_start_block);
+      le32(buff + 16, dir.dtable_start_block);
       le32(buff + 20, dt->nlink);
-      le16(buff + 24, dt->addi.dir.filesize);
-      le16(buff + 26, dt->addi.dir.dtable_start_offset);
+      le16(buff + 24, dir.filesize);
+      le16(buff + 26, dir.dtable_start_offset);
       le32(buff + 28, parent_inode_number);
       return 32;
     }
@@ -158,24 +163,25 @@ static inline size_t dirtree_write_inode_dir(unsigned char buff[40], struct dirt
 
 static inline size_t dirtree_write_inode_reg(unsigned char buff[56], struct dirtree * const dt)
 {
-  if (dt->addi.reg.start_block > 0xffffu || dt->addi.reg.file_size > 0xffffu || dt->xattr != 0xffffffffu || dt->nlink != 1)
+  dirtree_reg & reg = *static_cast<dirtree_reg *>(dt);
+  if (reg.start_block > 0xffffu || reg.file_size > 0xffffu || dt->xattr != 0xffffffffu || dt->nlink != 1)
     {
-      le64(buff + 16, dt->addi.reg.start_block);
-      le64(buff + 24, dt->addi.reg.file_size);
-      le64(buff + 32, dt->addi.reg.sparse);
+      le64(buff + 16, reg.start_block);
+      le64(buff + 24, reg.file_size);
+      le64(buff + 32, reg.sparse);
       le32(buff + 40, dt->nlink);
-      le32(buff + 44, dt->addi.reg.fragment);
-      le32(buff + 48, dt->addi.reg.offset);
+      le32(buff + 44, reg.fragment);
+      le32(buff + 48, reg.offset);
       le32(buff + 52, dt->xattr);
       return 56;
     }
   else
     {
       le16(buff, dt->inode_type - 7);
-      le32(buff + 16, dt->addi.reg.start_block);
-      le32(buff + 20, dt->addi.reg.fragment);
-      le32(buff + 24, dt->addi.reg.offset);
-      le32(buff + 28, dt->addi.reg.file_size);
+      le32(buff + 16, reg.start_block);
+      le32(buff + 20, reg.fragment);
+      le32(buff + 24, reg.offset);
+      le32(buff + 28, reg.file_size);
       return 32;
     }
 }
@@ -183,7 +189,7 @@ static inline size_t dirtree_write_inode_reg(unsigned char buff[56], struct dirt
 static int dirtree_write_inode(struct sqsh_writer * const writer, dirtree & dt, uint32_t const parent_inode_number)
 {
   if (dt.inode_type == SQFS_INODE_TYPE_DIR)
-    for (auto entry : *dt.addi.dir.entries)
+    for (auto entry : *static_cast<dirtree_dir &>(dt).entries)
       RETIF(dirtree_write_inode(writer, *entry.inode, dt.inode_number));
 
   bool const has_xattr = dt.xattr != 0xffffffffu;
@@ -213,14 +219,15 @@ static int dirtree_write_inode(struct sqsh_writer * const writer, dirtree & dt, 
 
       case SQFS_INODE_TYPE_SYM:
         {
-          size_t const tlen = strlen(dt.addi.sym.target);
+          dirtree_sym & sym = static_cast<dirtree_sym &>(dt);
+          size_t const tlen = strlen(sym.target);
           size_t const inode_len = tlen + (has_xattr ? 28 : 24);
           unsigned char buff[inode_len];
 
           dirtree_inode_common(writer, &dt, buff);
           le32(buff + 16, dt.nlink);
           le32(buff + 20, tlen);
-          memcpy(buff + 24, dt.addi.sym.target, tlen);
+          memcpy(buff + 24, sym.target, tlen);
 
           if (has_xattr)
             le32(buff + 24 + tlen, dt.xattr);
@@ -239,7 +246,7 @@ static int dirtree_write_inode(struct sqsh_writer * const writer, dirtree & dt, 
           unsigned char buff[inode_len];
           dirtree_inode_common(writer, &dt, buff);
           le32(buff + 16, dt.nlink);
-          le32(buff + 20, dt.addi.dev.rdev);
+          le32(buff + 20, static_cast<dirtree_dev &>(dt).rdev);
 
           if (has_xattr)
             le32(buff + 24, dt.xattr);

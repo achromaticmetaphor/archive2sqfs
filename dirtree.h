@@ -28,52 +28,6 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "sqsh_writer.h"
 
-struct dirtree;
-
-struct dirtree_entry
-{
-  char const * name;
-  std::shared_ptr<dirtree> inode;
-};
-
-struct dirtree_addi_dir
-{
-  size_t space;
-  std::vector<dirtree_entry> * entries;
-  uint32_t filesize;
-  uint32_t dtable_start_block;
-  uint16_t dtable_start_offset;
-};
-
-struct dirtree_addi_reg
-{
-  uint64_t start_block;
-  uint64_t file_size;
-  uint64_t sparse;
-  uint32_t fragment;
-  uint32_t offset;
-
-  std::vector<uint32_t> * blocks;
-};
-
-struct dirtree_addi_sym
-{
-  char * target;
-};
-
-struct dirtree_addi_dev
-{
-  uint32_t rdev;
-};
-
-union dirtree_addi
-{
-  struct dirtree_addi_dir dir;
-  struct dirtree_addi_reg reg;
-  struct dirtree_addi_sym sym;
-  struct dirtree_addi_dev dev;
-};
-
 struct dirtree
 {
   uint16_t inode_type;
@@ -86,7 +40,43 @@ struct dirtree
   uint32_t nlink;
   uint32_t xattr;
 
-  union dirtree_addi addi;
+  virtual ~dirtree() = default;
+};
+
+struct dirtree_entry
+{
+  char const * name;
+  std::shared_ptr<dirtree> inode;
+};
+
+struct dirtree_dir : public dirtree
+{
+  size_t space;
+  std::vector<dirtree_entry> * entries;
+  uint32_t filesize;
+  uint32_t dtable_start_block;
+  uint16_t dtable_start_offset;
+};
+
+struct dirtree_reg : public dirtree
+{
+  uint64_t start_block;
+  uint64_t file_size;
+  uint64_t sparse;
+  uint32_t fragment;
+  uint32_t offset;
+
+  std::vector<uint32_t> * blocks;
+};
+
+struct dirtree_sym : public dirtree
+{
+  char * target;
+};
+
+struct dirtree_dev : public dirtree
+{
+  uint32_t rdev;
 };
 
 int dirtree_entry_compare(void const *, void const *);
@@ -118,13 +108,6 @@ static inline void dirtree_init(dirtree & dt, struct sqsh_writer * const wr)
   dt.inode_number = sqsh_writer_next_inode_number(wr);
   dt.nlink = 1;
   dt.xattr = 0xffffffffu;
-}
-
-static inline std::shared_ptr<dirtree> dirtree_new(struct sqsh_writer * const wr, void (*init)(dirtree &, struct sqsh_writer *))
-{
-  std::shared_ptr<dirtree> const dt = std::make_shared<dirtree>();
-  init(*dt, wr);
-  return dt;
 }
 
 #endif

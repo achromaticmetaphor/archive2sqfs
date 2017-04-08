@@ -42,19 +42,23 @@ void dirtree_dir_init(dirtree & dt, struct sqsh_writer * const wr)
   dt.inode_type = SQFS_INODE_TYPE_DIR;
   dt.mode = 0755;
 
-  dt.addi.dir.space = 0;
-  dt.addi.dir.entries = new std::vector<dirtree_entry>();
+  dirtree_dir & dir = static_cast<dirtree_dir &>(dt);
+  dir.space = 0;
+  dir.entries = new std::vector<dirtree_entry>();
 }
 
 std::shared_ptr<dirtree> dirtree_dir_new(struct sqsh_writer * const wr)
 {
-  return dirtree_new(wr, dirtree_dir_init);
+  auto dir = new dirtree_dir;
+  dirtree_dir_init(*dir, wr);
+  return std::shared_ptr<dirtree>(dir);
 }
 
 static std::shared_ptr<dirtree> dirtree_get_child(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const dt, char const * name, std::shared_ptr<dirtree> (*con)(struct sqsh_writer *))
 {
-  auto entry = std::find_if(dt->addi.dir.entries->begin(), dt->addi.dir.entries->end(), [&](auto entry) -> bool { return strcmp(name, entry.name) == 0; });
-  if (entry != dt->addi.dir.entries->end())
+  dirtree_dir & dir = *static_cast<dirtree_dir *>(&*dt);
+  auto entry = std::find_if(dir.entries->begin(), dir.entries->end(), [&](auto entry) -> bool { return strcmp(name, entry.name) == 0; });
+  if (entry != dir.entries->end())
     return entry->inode;
 
   auto new_name = strdup(name);
@@ -62,7 +66,7 @@ static std::shared_ptr<dirtree> dirtree_get_child(struct sqsh_writer * const wr,
     return nullptr;
 
   auto child = con(wr);
-  dt->addi.dir.entries->push_back({new_name, child});
+  dir.entries->push_back({new_name, child});
   return child;
 }
 
@@ -117,8 +121,9 @@ std::shared_ptr<dirtree> dirtree_put_sym_for_path(struct sqsh_writer * const wr,
   if (sym == nullptr)
     return nullptr;
 
-  sym->addi.sym.target = strdup(target);
-  if (sym->addi.sym.target == nullptr)
+  char *& symtarget = static_cast<dirtree_sym *>(&*sym)->target;
+  symtarget = strdup(target);
+  if (symtarget == nullptr)
     return dirtree_free(sym), nullptr;
 
   return sym;
@@ -130,7 +135,7 @@ std::shared_ptr<dirtree> dirtree_put_dev_for_path(struct sqsh_writer * const wr,
   if (dev != nullptr)
     {
       dev->inode_type = type;
-      dev->addi.dev.rdev = rdev;
+      static_cast<dirtree_dev *>(&*dev)->rdev = rdev;
     }
 
   return dev;
