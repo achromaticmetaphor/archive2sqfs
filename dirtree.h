@@ -78,6 +78,8 @@ struct dirtree_dir : public dirtree
     for (auto entry : entries)
       free(const_cast<char *>(entry.name));
   }
+
+  void dump_tree() const;
 };
 
 struct dirtree_reg : public dirtree
@@ -123,12 +125,9 @@ struct dirtree_dev : public dirtree
   dirtree_dev(sqsh_writer * wr) : dirtree(wr) {}
 };
 
-int dirtree_entry_compare(void const *, void const *);
-int dirtree_entry_by_name(void const *, void const *);
 std::shared_ptr<dirtree> dirtree_reg_new(struct sqsh_writer *);
 std::shared_ptr<dirtree> dirtree_dir_new(struct sqsh_writer *);
 std::shared_ptr<dirtree> dirtree_get_subdir_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, char const *);
-void dirtree_dump_tree(struct dirtree const *);
 int dirtree_write_tables(struct sqsh_writer *, struct dirtree *);
 std::shared_ptr<dirtree> dirtree_put_reg_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, char const *);
 int dirtree_reg_append(struct sqsh_writer *, struct dirtree *, unsigned char const *, size_t);

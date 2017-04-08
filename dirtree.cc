@@ -18,43 +18,41 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #define _POSIX_C_SOURCE 200809L
 
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
+#include <iostream>
 #include <memory>
+#include <string>
 
 #include "dirtree.h"
 #include "sqsh_defs.h"
 
-int dirtree_entry_compare(void const * const va, void const * const vb)
+static void dirtree_dump_with_prefix(dirtree_dir const & dir, std::string const & prefix)
 {
-  return strcmp(reinterpret_cast<dirtree_entry const *>(va)->name, reinterpret_cast<dirtree_entry const *>(vb)->name);
-}
-
-int dirtree_entry_by_name(void const * const va, void const * const vb)
-{
-  return strcmp(reinterpret_cast<char const *>(va), reinterpret_cast<dirtree_entry const *>(vb)->name);
-}
-
-static void dirtree_dump_with_prefix(std::shared_ptr<dirtree const> const dt, char const * const prefix)
-{
-  puts(prefix);
-  for (auto entry : static_cast<dirtree_dir const *>(&*dt)->entries)
+  std::cout << prefix << std::endl;
+  for (auto entry : dir.entries)
     {
       if (entry.inode->inode_type == SQFS_INODE_TYPE_DIR)
+        dirtree_dump_with_prefix(*static_cast<dirtree_dir *>(&*entry.inode), prefix + "/" + entry.name);
+      else
         {
-          char prefix_[strlen(prefix) + strlen(entry.name) + 2];
-          sprintf(prefix_, "%s/%s", prefix, entry.name);
-          dirtree_dump_with_prefix(entry.inode, prefix_);
+          std::cout << "\t" << entry.name;
+
+          if (entry.inode->inode_type == SQFS_INODE_TYPE_SYM)
+            std::cout << "@ -> " << static_cast<dirtree_sym *>(&*entry.inode)->target;
+          else if (entry.inode->inode_type == SQFS_INODE_TYPE_BLK)
+            std::cout << "[]";
+          else if (entry.inode->inode_type == SQFS_INODE_TYPE_CHR)
+            std::cout << "''";
+          else if (entry.inode->inode_type == SQFS_INODE_TYPE_PIPE)
+            std::cout << "|";
+          else if (entry.inode->inode_type == SQFS_INODE_TYPE_SOCK)
+            std::cout << "=";
+
+          std::cout << std::endl;
         }
-      if (entry.inode->inode_type == SQFS_INODE_TYPE_REG)
-        printf("\t%s\n", entry.name);
     }
 }
 
-void dirtree_dump_tree(std::shared_ptr<dirtree const> const dt)
+void dirtree_dir::dump_tree() const
 {
-  dirtree_dump_with_prefix(dt, ".");
+  dirtree_dump_with_prefix(*this, ".");
 }
