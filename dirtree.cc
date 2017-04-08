@@ -23,6 +23,8 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdlib.h>
 #include <string.h>
 
+#include <memory>
+
 #include "dirtree.h"
 #include "sqsh_defs.h"
 
@@ -36,7 +38,7 @@ int dirtree_entry_by_name(void const * const va, void const * const vb)
   return strcmp(reinterpret_cast<char const *>(va), reinterpret_cast<dirtree_entry const *>(vb)->name);
 }
 
-void dirtree_free(struct dirtree * const dt)
+void dirtree_free(std::shared_ptr<dirtree> const dt)
 {
   if (dt->inode_type == SQFS_INODE_TYPE_DIR)
     {
@@ -52,11 +54,9 @@ void dirtree_free(struct dirtree * const dt)
     delete dt->addi.reg.blocks;
   else if (dt->inode_type == SQFS_INODE_TYPE_SYM)
     free(dt->addi.sym.target);
-
-  delete dt;
 }
 
-static void dirtree_dump_with_prefix(struct dirtree const * const dt, char const * const prefix)
+static void dirtree_dump_with_prefix(std::shared_ptr<dirtree const> const dt, char const * const prefix)
 {
   puts(prefix);
   for (auto entry : *dt->addi.dir.entries)
@@ -72,7 +72,7 @@ static void dirtree_dump_with_prefix(struct dirtree const * const dt, char const
     }
 }
 
-void dirtree_dump_tree(struct dirtree const * const dt)
+void dirtree_dump_tree(std::shared_ptr<dirtree const> const dt)
 {
   dirtree_dump_with_prefix(dt, ".");
 }

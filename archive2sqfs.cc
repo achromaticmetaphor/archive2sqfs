@@ -24,6 +24,8 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdlib.h>
 #include <string.h>
 
+#include <memory>
+
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -77,7 +79,7 @@ int main(int argc, char * argv[])
 
   struct sqsh_writer writer;
   bool const writer_failed = sqsh_writer_init(&writer, outfilepath, SQFS_BLOCK_LOG_DEFAULT);
-  struct dirtree * const root = writer_failed ? nullptr : dirtree_dir_new(&writer);
+  std::shared_ptr<dirtree> const root = writer_failed ? nullptr : dirtree_dir_new(&writer);
 
   FILE * const infile = root == nullptr ? nullptr : (infilepath == nullptr ? stdin : fopen(infilepath, "rb"));
   struct archive * const archive = infile == nullptr ? nullptr : archive_read_new();
@@ -94,7 +96,7 @@ int main(int argc, char * argv[])
   while (!failed && archive_read_next_header(archive, &entry) == ARCHIVE_OK)
     {
       char const * const pathname = strip_path(strip, archive_entry_pathname(entry));
-      struct dirtree * dt = nullptr;
+      std::shared_ptr<dirtree> dt = nullptr;
       mode_t const filetype = archive_entry_filetype(entry);
       switch (filetype)
         {
@@ -110,15 +112,15 @@ int main(int argc, char * argv[])
             for (i = archive_entry_size(entry); i >= block_size && !failed; i -= block_size)
               {
                 failed = failed || archive_read_data(archive, buff, block_size) != block_size;
-                failed = failed || dirtree_reg_append(&writer, dt, buff, block_size);
+                failed = failed || dirtree_reg_append(&writer, &*dt, buff, block_size);
               }
             if (i > 0 && !failed)
               {
                 failed = failed || archive_read_data(archive, buff, i) != i;
-                failed = failed || dirtree_reg_append(&writer, dt, buff, i);
+                failed = failed || dirtree_reg_append(&writer, &*dt, buff, i);
               }
 
-            failed = failed || dirtree_reg_flush(&writer, dt);
+            failed = failed || dirtree_reg_flush(&writer, &*dt);
             break;
 
           case AE_IFLNK:
@@ -154,7 +156,7 @@ int main(int argc, char * argv[])
         }
     }
 
-  failed = failed || dirtree_write_tables(&writer, root);
+  failed = failed || dirtree_write_tables(&writer, &*root);
   failed = failed || sqsh_writer_write_header(&writer);
   failed = failed || sqsh_writer_destroy(&writer);
 

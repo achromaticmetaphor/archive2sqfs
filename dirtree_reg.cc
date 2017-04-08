@@ -29,21 +29,21 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "sqsh_writer.h"
 #include "util.h"
 
-void dirtree_reg_init(struct dirtree * const dt, struct sqsh_writer * const wr)
+void dirtree_reg_init(dirtree & dt, struct sqsh_writer * const wr)
 {
   dirtree_init(dt, wr);
 
-  dt->inode_type = SQFS_INODE_TYPE_REG;
-  dt->addi.reg.start_block = 0;
-  dt->addi.reg.file_size = 0;
-  dt->addi.reg.sparse = 0;
-  dt->addi.reg.fragment = 0xffffffffu;
-  dt->addi.reg.offset = 0;
+  dt.inode_type = SQFS_INODE_TYPE_REG;
+  dt.addi.reg.start_block = 0;
+  dt.addi.reg.file_size = 0;
+  dt.addi.reg.sparse = 0;
+  dt.addi.reg.fragment = 0xffffffffu;
+  dt.addi.reg.offset = 0;
 
-  dt->addi.reg.blocks = new std::vector<uint32_t>();
+  dt.addi.reg.blocks = new std::vector<uint32_t>();
 }
 
-struct dirtree * dirtree_reg_new(struct sqsh_writer * const wr)
+std::shared_ptr<dirtree> dirtree_reg_new(struct sqsh_writer * const wr)
 {
   return dirtree_new(wr, dirtree_reg_init);
 }
