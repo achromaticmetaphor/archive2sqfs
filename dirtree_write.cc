@@ -70,7 +70,7 @@ static int dirtree_write_dirtable_segment(struct sqsh_writer * const wr, struct 
   le32(buff, header.count - 1);
   le32(buff + 4, header.start_block);
   le32(buff + 8, header.inode_number);
-  RETIF(meta_address_error(mdw_put(&wr->dentry_writer, buff, 12)));
+  RETIF(meta_address_error(wr->dentry_writer.put(buff, 12)));
   dir.filesize += 12;
 
   for (size_t i = 0; i < header.count; i++)
@@ -87,7 +87,7 @@ static int dirtree_write_dirtable_segment(struct sqsh_writer * const wr, struct 
       for (size_t i = 0; i < len_name; i++)
         buff[i + 8] = entry.name[i];
 
-      RETIF(meta_address_error(mdw_put(&wr->dentry_writer, buff, 8 + len_name)));
+      RETIF(meta_address_error(wr->dentry_writer.put(buff, 8 + len_name)));
       dir.filesize += 8 + len_name;
       if (entry.inode->inode_type == SQFS_INODE_TYPE_DIR)
         dt->nlink++;
@@ -100,7 +100,7 @@ static int dirtree_write_dirtable_segment(struct sqsh_writer * const wr, struct 
 static int dirtree_write_dirtable(struct sqsh_writer * const wr, struct dirtree * const dt)
 {
   dirtree_dir & dir = *static_cast<dirtree_dir *>(dt);
-  uint64_t const addr = mdw_put(&wr->dentry_writer, nullptr, 0);
+  uint64_t const addr = wr->dentry_writer.put(nullptr, 0);
   RETIF(meta_address_error(addr));
 
   dir.dtable_start_block = meta_address_block(addr);
@@ -132,7 +132,7 @@ static int dirtree_reg_write_inode_blocks(struct sqsh_writer * const wr, struct 
   unsigned char buff[reg.blocks.size() * 4];
   for (size_t i = 0; i < reg.blocks.size(); i++)
     le32(buff + i * 4, reg.blocks[i]);
-  return meta_address_error(mdw_put(&wr->inode_writer, buff, reg.blocks.size() * 4));
+  return meta_address_error(wr->inode_writer.put(buff, reg.blocks.size() * 4));
 }
 
 static inline size_t dirtree_write_inode_dir(unsigned char buff[40], struct dirtree * const dt, uint32_t const parent_inode_number)
@@ -201,7 +201,7 @@ static int dirtree_write_inode(struct sqsh_writer * const writer, dirtree & dt, 
           unsigned char buff[40];
           dirtree_inode_common(writer, &dt, buff);
           size_t const inode_len = dirtree_write_inode_dir(buff, &dt, parent_inode_number);
-          dt.inode_address = mdw_put(&writer->inode_writer, buff, inode_len);
+          dt.inode_address = writer->inode_writer.put(buff, inode_len);
           RETIF(meta_address_error(dt.inode_address));
         }
         break;
@@ -211,7 +211,7 @@ static int dirtree_write_inode(struct sqsh_writer * const writer, dirtree & dt, 
           unsigned char buff[56];
           dirtree_inode_common(writer, &dt, buff);
           size_t const inode_len = dirtree_write_inode_reg(buff, &dt);
-          dt.inode_address = mdw_put(&writer->inode_writer, buff, inode_len);
+          dt.inode_address = writer->inode_writer.put(buff, inode_len);
           RETIF(meta_address_error(dt.inode_address));
           dirtree_reg_write_inode_blocks(writer, &dt);
         }
@@ -234,7 +234,7 @@ static int dirtree_write_inode(struct sqsh_writer * const writer, dirtree & dt, 
           else
             le16(buff, dt.inode_type - 7);
 
-          dt.inode_address = mdw_put(&writer->inode_writer, buff, inode_len);
+          dt.inode_address = writer->inode_writer.put(buff, inode_len);
           RETIF(meta_address_error(dt.inode_address));
         }
         break;
@@ -253,7 +253,7 @@ static int dirtree_write_inode(struct sqsh_writer * const writer, dirtree & dt, 
           else
             le16(buff, dt.inode_type - 7);
 
-          dt.inode_address = mdw_put(&writer->inode_writer, buff, inode_len);
+          dt.inode_address = writer->inode_writer.put(buff, inode_len);
           RETIF(meta_address_error(dt.inode_address));
         }
         break;
@@ -271,7 +271,7 @@ static int dirtree_write_inode(struct sqsh_writer * const writer, dirtree & dt, 
           else
             le16(buff, dt.inode_type - 7);
 
-          dt.inode_address = mdw_put(&writer->inode_writer, buff, inode_len);
+          dt.inode_address = writer->inode_writer.put(buff, inode_len);
           RETIF(meta_address_error(dt.inode_address));
         }
         break;
@@ -288,8 +288,8 @@ int dirtree_write_tables(struct sqsh_writer * const wr, struct dirtree * const d
   RETIF(sqsh_writer_flush_fragment(wr));
   RETIF(dirtree_write_inode(wr, *dt, wr->next_inode));
   wr->super.root_inode = dt->inode_address;
-  mdw_write_block(&wr->inode_writer);
-  mdw_write_block(&wr->dentry_writer);
+  wr->inode_writer.write_block();
+  wr->dentry_writer.write_block();
   RETIF(sqsh_writer_write_tables(wr));
   return 0;
 }

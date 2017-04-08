@@ -29,18 +29,18 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 struct mdw
 {
-  size_t buff_pos = 0;
   std::vector<unsigned char> table;
-  unsigned char buff[SQFS_META_BLOCK_SIZE];
+  std::vector<unsigned char> buff;
+
+  bool out(FILE * const out)
+  {
+    return fwrite(table.data(), 1, table.size(), out) != table.size();
+  }
+
+  void write_block_compressed(std::size_t, unsigned char const *, uint16_t);
+  void write_block_no_pad(void);
+  void write_block(void);
+  uint64_t put(unsigned char const *, size_t);
 };
-
-static inline int mdw_out(struct mdw * const mdw, FILE * const out)
-{
-  return fwrite(mdw->table.data(), 1, mdw->table.size(), out) != mdw->table.size();
-}
-
-void mdw_write_block_no_pad(struct mdw *);
-void mdw_write_block(struct mdw *);
-uint64_t mdw_put(struct mdw *, unsigned char const *, size_t);
 
 #endif

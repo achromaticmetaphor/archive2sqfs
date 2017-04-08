@@ -132,7 +132,7 @@ int sqsh_writer_write_header(struct sqsh_writer * const writer)
       {                                                                                                                 \
         unsigned char buff[ITD_ENTRY_SIZE(ENTRY_LB)];                                                                   \
         sqsh_writer_##TABLE##_table_entry(buff, wr, i);                                                                 \
-        uint64_t const maddr = mdw_put(&mdw, buff, ITD_ENTRY_SIZE(ENTRY_LB));                                           \
+        uint64_t const maddr = mdw.put(buff, ITD_ENTRY_SIZE(ENTRY_LB));                                                 \
         RETIF(meta_address_error(maddr));                                                                               \
                                                                                                                         \
         if ((i & ITD_MASK(ENTRY_LB)) == 0)                                                                              \
@@ -141,9 +141,9 @@ int sqsh_writer_write_header(struct sqsh_writer * const writer)
                                                                                                                         \
     int error = 0;                                                                                                      \
     if (wr->COUNT_FIELD & ITD_MASK(ENTRY_LB))                                                                           \
-      mdw_write_block_no_pad(&mdw);                                                                                     \
+      mdw.write_block_no_pad();                                                                                         \
                                                                                                                         \
-    error = error || mdw_out(&mdw, wr->outfile);                                                                        \
+    error = error || mdw.out(wr->outfile);                                                                              \
                                                                                                                         \
     long int const tell = error ? -1 : ftell(wr->outfile);                                                              \
     error = error || tell == -1;                                                                                        \
@@ -170,12 +170,12 @@ SQSH_WRITER_WRITE_INDEXED_TABLE_DEFN(fragment, 4, fragments.size())
 
 static int sqsh_writer_write_inode_table(struct sqsh_writer * const wr)
 {
-  return mdw_out(&wr->inode_writer, wr->outfile);
+  return wr->inode_writer.out(wr->outfile);
 }
 
 static int sqsh_writer_write_directory_table(struct sqsh_writer * const wr)
 {
-  return mdw_out(&wr->dentry_writer, wr->outfile);
+  return wr->dentry_writer.out(wr->outfile);
 }
 
 static inline void tell_wr(struct sqsh_writer * const wr, int * const error, uint64_t * const start, int (*cb)(struct sqsh_writer *))
