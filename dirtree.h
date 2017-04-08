@@ -41,6 +41,17 @@ struct dirtree
   uint32_t xattr;
 
   virtual ~dirtree() = default;
+
+  dirtree(sqsh_writer * wr)
+  {
+    mode = 0644;
+    uid = 0;
+    gid = 0;
+    mtime = 0;
+    inode_number = sqsh_writer_next_inode_number(wr);
+    nlink = 1;
+    xattr = 0xffffffffu;
+  }
 };
 
 struct dirtree_entry
@@ -51,11 +62,22 @@ struct dirtree_entry
 
 struct dirtree_dir : public dirtree
 {
-  size_t space;
-  std::vector<dirtree_entry> * entries;
+  std::vector<dirtree_entry> entries;
   uint32_t filesize;
   uint32_t dtable_start_block;
   uint16_t dtable_start_offset;
+
+  dirtree_dir(sqsh_writer * wr) : dirtree(wr)
+  {
+    inode_type = SQFS_INODE_TYPE_DIR;
+    mode = 0755;
+  }
+
+  ~dirtree_dir()
+  {
+    for (auto entry : entries)
+      free(const_cast<char *>(entry.name));
+  }
 };
 
 struct dirtree_reg : public dirtree
@@ -66,48 +88,56 @@ struct dirtree_reg : public dirtree
   uint32_t fragment;
   uint32_t offset;
 
-  std::vector<uint32_t> * blocks;
+  std::vector<uint32_t> blocks;
+
+  dirtree_reg(sqsh_writer * wr) : dirtree(wr)
+  {
+    inode_type = SQFS_INODE_TYPE_REG;
+    start_block = 0;
+    file_size = 0;
+    sparse = 0;
+    fragment = 0xffffffffu;
+    offset = 0;
+  }
 };
 
 struct dirtree_sym : public dirtree
 {
   char * target;
+
+  dirtree_sym(sqsh_writer * wr) : dirtree(wr)
+  {
+    inode_type = SQFS_INODE_TYPE_SYM;
+  }
+
+  ~dirtree_sym()
+  {
+    free(target);
+  }
 };
 
 struct dirtree_dev : public dirtree
 {
   uint32_t rdev;
+
+  dirtree_dev(sqsh_writer * wr) : dirtree(wr) {}
 };
 
 int dirtree_entry_compare(void const *, void const *);
 int dirtree_entry_by_name(void const *, void const *);
-void dirtree_reg_init(dirtree &, struct sqsh_writer *);
-void dirtree_dir_init(dirtree &, struct sqsh_writer *);
 std::shared_ptr<dirtree> dirtree_reg_new(struct sqsh_writer *);
 std::shared_ptr<dirtree> dirtree_dir_new(struct sqsh_writer *);
 std::shared_ptr<dirtree> dirtree_get_subdir_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, char const *);
 void dirtree_dump_tree(struct dirtree const *);
 int dirtree_write_tables(struct sqsh_writer *, struct dirtree *);
-void dirtree_free(std::shared_ptr<dirtree>);
 std::shared_ptr<dirtree> dirtree_put_reg_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, char const *);
 int dirtree_reg_append(struct sqsh_writer *, struct dirtree *, unsigned char const *, size_t);
 int dirtree_reg_flush(struct sqsh_writer *, struct dirtree *);
 std::shared_ptr<dirtree> dirtree_put_sym_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, char const *, char const *);
 std::shared_ptr<dirtree> dirtree_put_dev_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, char const *, uint16_t, uint32_t);
 std::shared_ptr<dirtree> dirtree_put_ipc_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, char const *, uint16_t);
-std::shared_ptr<dirtree> dirtree_sym_new(struct sqsh_writer *);
-std::shared_ptr<dirtree> dirtree_dev_new(struct sqsh_writer *);
-std::shared_ptr<dirtree> dirtree_ipc_new(struct sqsh_writer *);
-
-static inline void dirtree_init(dirtree & dt, struct sqsh_writer * const wr)
-{
-  dt.mode = 0644;
-  dt.uid = 0;
-  dt.gid = 0;
-  dt.mtime = 0;
-  dt.inode_number = sqsh_writer_next_inode_number(wr);
-  dt.nlink = 1;
-  dt.xattr = 0xffffffffu;
-}
+std::shared_ptr<dirtree> dirtree_sym_new(sqsh_writer *);
+std::shared_ptr<dirtree> dirtree_dev_new(sqsh_writer *);
+std::shared_ptr<dirtree> dirtree_ipc_new(sqsh_writer *);
 
 #endif

@@ -29,36 +29,18 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "sqsh_writer.h"
 #include "util.h"
 
-void dirtree_reg_init(dirtree & dt, struct sqsh_writer * const wr)
+std::shared_ptr<dirtree> dirtree_reg_new(sqsh_writer * wr)
 {
-  dirtree_init(dt, wr);
-
-  dirtree_reg & reg = static_cast<dirtree_reg &>(dt);
-
-  dt.inode_type = SQFS_INODE_TYPE_REG;
-  reg.start_block = 0;
-  reg.file_size = 0;
-  reg.sparse = 0;
-  reg.fragment = 0xffffffffu;
-  reg.offset = 0;
-
-  reg.blocks = new std::vector<uint32_t>();
-}
-
-std::shared_ptr<dirtree> dirtree_reg_new(struct sqsh_writer * const wr)
-{
-  dirtree_reg * reg = new dirtree_reg;
-  dirtree_reg_init(*reg, wr);
-  return std::shared_ptr<dirtree>(reg);
+  return std::shared_ptr<dirtree>(new dirtree_reg(wr));
 }
 
 static void dirtree_reg_add_block(struct dirtree * const dt, size_t size, long int const start_block)
 {
   dirtree_reg & reg = *static_cast<dirtree_reg *>(dt);
-  if (reg.blocks->size() == 0)
+  if (reg.blocks.size() == 0)
     reg.start_block = start_block;
 
-  reg.blocks->push_back(size);
+  reg.blocks.push_back(size);
 }
 
 int dirtree_reg_flush(struct sqsh_writer * const wr, struct dirtree * const dt)
@@ -68,7 +50,7 @@ int dirtree_reg_flush(struct sqsh_writer * const wr, struct dirtree * const dt)
 
   dirtree_reg & reg = *static_cast<dirtree_reg *>(dt);
   size_t const block_size = (size_t) 1 << wr->super.block_log;
-  if (wr->current_block.size() < block_size && reg.blocks->size() == 0)
+  if (wr->current_block.size() < block_size && reg.blocks.size() == 0)
     {
       reg.offset = sqsh_writer_put_fragment(wr, wr->current_block);
       RETIF(reg.offset == block_size);

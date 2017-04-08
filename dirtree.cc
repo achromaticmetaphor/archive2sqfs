@@ -38,28 +38,10 @@ int dirtree_entry_by_name(void const * const va, void const * const vb)
   return strcmp(reinterpret_cast<char const *>(va), reinterpret_cast<dirtree_entry const *>(vb)->name);
 }
 
-void dirtree_free(std::shared_ptr<dirtree> const dt)
-{
-  if (dt->inode_type == SQFS_INODE_TYPE_DIR)
-    {
-      for (auto entry : *static_cast<dirtree_dir *>(&*dt)->entries)
-        {
-          dirtree_free(entry.inode);
-          free(const_cast<char *>(entry.name));
-        }
-
-      delete static_cast<dirtree_dir *>(&*dt)->entries;
-    }
-  else if (dt->inode_type == SQFS_INODE_TYPE_REG)
-    delete static_cast<dirtree_reg *>(&*dt)->blocks;
-  else if (dt->inode_type == SQFS_INODE_TYPE_SYM)
-    free(static_cast<dirtree_sym *>(&*dt)->target);
-}
-
 static void dirtree_dump_with_prefix(std::shared_ptr<dirtree const> const dt, char const * const prefix)
 {
   puts(prefix);
-  for (auto entry : *static_cast<dirtree_dir const *>(&*dt)->entries)
+  for (auto entry : static_cast<dirtree_dir const *>(&*dt)->entries)
     {
       if (entry.inode->inode_type == SQFS_INODE_TYPE_DIR)
         {

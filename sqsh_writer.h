@@ -39,23 +39,23 @@ struct fragment_entry
 
 struct sqfs_super
 {
-  uint16_t compression;
-  uint16_t block_log;
-  uint16_t flags;
+  uint16_t compression = 1;
+  uint16_t block_log = SQFS_BLOCK_LOG_DEFAULT;
+  uint16_t flags = 0;
 
-  uint64_t root_inode;
-  uint64_t bytes_used;
-  uint64_t id_table_start;
-  uint64_t xattr_table_start;
-  uint64_t inode_table_start;
-  uint64_t directory_table_start;
-  uint64_t fragment_table_start;
-  uint64_t lookup_table_start;
+  uint64_t root_inode = 0;
+  uint64_t bytes_used = 0;
+  uint64_t id_table_start = 0;
+  uint64_t xattr_table_start = 0xffffffffffffffffu;
+  uint64_t inode_table_start = 0;
+  uint64_t directory_table_start = 0;
+  uint64_t fragment_table_start = 0;
+  uint64_t lookup_table_start = 0xffffffffffffffffu;
 };
 
 struct sqsh_writer
 {
-  uint32_t next_inode;
+  uint32_t next_inode = 1;
   struct sqfs_super super;
   struct mdw dentry_writer;
   struct mdw inode_writer;
@@ -79,11 +79,23 @@ struct sqsh_writer
     else
       return found->second;
   }
+
+  sqsh_writer(char const * path, int blog = SQFS_BLOCK_LOG_DEFAULT)
+  {
+    super.block_log = blog;
+    outfile = fopen(path, "wb");
+    if (outfile != nullptr)
+      fseek(outfile, 96L, SEEK_SET);
+  }
+
+  ~sqsh_writer()
+  {
+    if (outfile != nullptr)
+      fclose(outfile);
+  }
 };
 
 int u32cmp(void const *, void const *);
-int sqsh_writer_init(struct sqsh_writer *, char const *, int);
-int sqsh_writer_destroy(struct sqsh_writer *);
 int sqsh_writer_write_header(struct sqsh_writer *);
 size_t sqsh_writer_put_fragment(struct sqsh_writer *, std::vector<unsigned char> const &);
 int sqsh_writer_flush_fragment(struct sqsh_writer *);

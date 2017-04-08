@@ -35,30 +35,16 @@ static int dirtree_dirop_prep(struct dirtree * const dt)
   return 0;
 }
 
-void dirtree_dir_init(dirtree & dt, struct sqsh_writer * const wr)
+std::shared_ptr<dirtree> dirtree_dir_new(sqsh_writer * wr)
 {
-  dirtree_init(dt, wr);
-
-  dt.inode_type = SQFS_INODE_TYPE_DIR;
-  dt.mode = 0755;
-
-  dirtree_dir & dir = static_cast<dirtree_dir &>(dt);
-  dir.space = 0;
-  dir.entries = new std::vector<dirtree_entry>();
+  return std::shared_ptr<dirtree>(new dirtree_dir(wr));
 }
 
-std::shared_ptr<dirtree> dirtree_dir_new(struct sqsh_writer * const wr)
-{
-  auto dir = new dirtree_dir;
-  dirtree_dir_init(*dir, wr);
-  return std::shared_ptr<dirtree>(dir);
-}
-
-static std::shared_ptr<dirtree> dirtree_get_child(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const dt, char const * name, std::shared_ptr<dirtree> (*con)(struct sqsh_writer *))
+static std::shared_ptr<dirtree> dirtree_get_child(sqsh_writer * wr, std::shared_ptr<dirtree> const dt, char const * name, std::shared_ptr<dirtree> (*con)(sqsh_writer *))
 {
   dirtree_dir & dir = *static_cast<dirtree_dir *>(&*dt);
-  auto entry = std::find_if(dir.entries->begin(), dir.entries->end(), [&](auto entry) -> bool { return strcmp(name, entry.name) == 0; });
-  if (entry != dir.entries->end())
+  auto entry = std::find_if(dir.entries.begin(), dir.entries.end(), [&](auto entry) -> bool { return strcmp(name, entry.name) == 0; });
+  if (entry != dir.entries.end())
     return entry->inode;
 
   auto new_name = strdup(name);
@@ -66,7 +52,7 @@ static std::shared_ptr<dirtree> dirtree_get_child(struct sqsh_writer * const wr,
     return nullptr;
 
   auto child = con(wr);
-  dir.entries->push_back({new_name, child});
+  dir.entries.push_back({new_name, child});
   return child;
 }
 
@@ -123,10 +109,7 @@ std::shared_ptr<dirtree> dirtree_put_sym_for_path(struct sqsh_writer * const wr,
 
   char *& symtarget = static_cast<dirtree_sym *>(&*sym)->target;
   symtarget = strdup(target);
-  if (symtarget == nullptr)
-    return dirtree_free(sym), nullptr;
-
-  return sym;
+  return symtarget == nullptr ? nullptr : sym;
 }
 
 std::shared_ptr<dirtree> dirtree_put_dev_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, char const * const path, uint16_t type, uint32_t rdev)

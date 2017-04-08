@@ -29,15 +29,10 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 struct mdw
 {
-  size_t buff_pos;
+  size_t buff_pos = 0;
   std::vector<unsigned char> table;
   unsigned char buff[SQFS_META_BLOCK_SIZE];
 };
-
-static inline void mdw_init(struct mdw * const mdw)
-{
-  mdw->buff_pos = 0;
-}
 
 static inline int mdw_out(struct mdw * const mdw, FILE * const out)
 {

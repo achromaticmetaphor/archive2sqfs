@@ -43,38 +43,6 @@ static int fround_to(FILE * const f, long int const block)
   return fwrite(buff, 1, fill, f) != fill;
 }
 
-static void sqfs_super_init(struct sqfs_super * const super, int const block_log)
-{
-  super->compression = 1;
-  super->block_log = block_log;
-  super->flags = 0;
-  super->root_inode = 0;
-  super->bytes_used = 0;
-  super->id_table_start = 0;
-  super->xattr_table_start = 0xffffffffffffffffu;
-  super->inode_table_start = 0;
-  super->directory_table_start = 0;
-  super->fragment_table_start = 0;
-  super->lookup_table_start = 0xffffffffffffffffu;
-}
-
-int sqsh_writer_init(struct sqsh_writer * const wr, char const * const path, int const block_log)
-{
-  wr->next_inode = 1;
-  mdw_init(&wr->dentry_writer);
-  mdw_init(&wr->inode_writer);
-
-  sqfs_super_init(&wr->super, block_log);
-
-  wr->outfile = fopen(path, "wb");
-  return wr->outfile == nullptr || fseek(wr->outfile, 96L, SEEK_SET);
-}
-
-int sqsh_writer_destroy(struct sqsh_writer * const wr)
-{
-  return wr->outfile == nullptr || fclose(wr->outfile);
-}
-
 static void sqsh_writer_append_fragment(struct sqsh_writer * const wr, uint32_t const size, uint64_t const start_block)
 {
   wr->fragments.push_back({start_block, size});
@@ -158,7 +126,6 @@ int sqsh_writer_write_header(struct sqsh_writer * const writer)
     size_t const index_count = (wr->COUNT_FIELD >> ITD_SHIFT(ENTRY_LB)) + ((wr->ids.size() & ITD_MASK(ENTRY_LB)) != 0); \
     unsigned char indices[index_count * 8];                                                                             \
     struct mdw mdw;                                                                                                     \
-    mdw_init(&mdw);                                                                                                     \
     size_t index = 0;                                                                                                   \
                                                                                                                         \
     for (size_t i = 0; i < wr->COUNT_FIELD; i++)                                                                        \

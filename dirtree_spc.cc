@@ -24,24 +24,17 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
 
-std::shared_ptr<dirtree> dirtree_sym_new(struct sqsh_writer * const wr)
+std::shared_ptr<dirtree> dirtree_sym_new(sqsh_writer * wr)
 {
-  auto sym = new dirtree_sym;
-  dirtree_init(*sym, wr);
-  sym->inode_type = SQFS_INODE_TYPE_SYM;
-  return std::shared_ptr<dirtree>(sym);
+  return std::shared_ptr<dirtree>(new dirtree_sym(wr));
 }
 
-std::shared_ptr<dirtree> dirtree_dev_new(struct sqsh_writer * const wr)
+std::shared_ptr<dirtree> dirtree_dev_new(sqsh_writer * wr)
 {
-  auto dev = std::shared_ptr<dirtree>(new dirtree_dev);
-  dirtree_init(*dev, wr);
-  return dev;
+  return std::shared_ptr<dirtree>(new dirtree_dev(wr));
 }
 
-std::shared_ptr<dirtree> dirtree_ipc_new(struct sqsh_writer * const wr)
+std::shared_ptr<dirtree> dirtree_ipc_new(sqsh_writer * wr)
 {
-  auto ipc = std::shared_ptr<dirtree>(new dirtree);
-  dirtree_init(*ipc, wr);
-  return ipc;
+  return std::make_shared<dirtree>(wr);
 }

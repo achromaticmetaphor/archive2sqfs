@@ -77,11 +77,10 @@ int main(int argc, char * argv[])
       return 3;
     }
 
-  struct sqsh_writer writer;
-  bool const writer_failed = sqsh_writer_init(&writer, outfilepath, SQFS_BLOCK_LOG_DEFAULT);
-  std::shared_ptr<dirtree> const root = writer_failed ? nullptr : dirtree_dir_new(&writer);
+  struct sqsh_writer writer(outfilepath);
+  std::shared_ptr<dirtree> const root = dirtree_dir_new(&writer);
 
-  FILE * const infile = root == nullptr ? nullptr : (infilepath == nullptr ? stdin : fopen(infilepath, "rb"));
+  FILE * const infile = infilepath == nullptr ? stdin : fopen(infilepath, "rb");
   struct archive * const archive = infile == nullptr ? nullptr : archive_read_new();
 
   bool failed = archive == nullptr;
@@ -89,7 +88,7 @@ int main(int argc, char * argv[])
   failed = failed || archive_read_support_format_all(archive) != ARCHIVE_OK;
   failed = failed || archive_read_open_FILE(archive, infile) != ARCHIVE_OK;
 
-  size_t const block_size = writer_failed ? (size_t) 0 : (size_t) 1 << writer.super.block_log;
+  size_t const block_size = (size_t) 1 << writer.super.block_log;
   unsigned char buff[block_size];
   struct archive_entry * entry;
 
@@ -158,19 +157,12 @@ int main(int argc, char * argv[])
 
   failed = failed || dirtree_write_tables(&writer, &*root);
   failed = failed || sqsh_writer_write_header(&writer);
-  failed = failed || sqsh_writer_destroy(&writer);
-
-  if (failed)
-    remove(argv[1]);
 
   if (archive != nullptr)
     archive_read_free(archive);
 
   if (infile != nullptr)
     fclose(infile);
-
-  if (root != nullptr)
-    dirtree_free(root);
 
   return failed;
 }
