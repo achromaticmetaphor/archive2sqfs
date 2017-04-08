@@ -58,13 +58,13 @@ static void dirtree_reg_add_block(struct dirtree * const dt, size_t size, long i
 
 int dirtree_reg_flush(struct sqsh_writer * const wr, struct dirtree * const dt)
 {
-  if (wr->current_pos == 0)
+  if (wr->current_block.size() == 0)
     return 0;
 
   size_t const block_size = (size_t) 1 << wr->super.block_log;
-  if (wr->current_pos < block_size && dt->addi.reg.blocks->size() == 0)
+  if (wr->current_block.size() < block_size && dt->addi.reg.blocks->size() == 0)
     {
-      dt->addi.reg.offset = sqsh_writer_put_fragment(wr, wr->current_block, wr->current_pos);
+      dt->addi.reg.offset = sqsh_writer_put_fragment(wr, wr->current_block);
       RETIF(dt->addi.reg.offset == block_size);
       dt->addi.reg.fragment = wr->fragments.size();
     }
@@ -73,13 +73,13 @@ int dirtree_reg_flush(struct sqsh_writer * const wr, struct dirtree * const dt)
       long int const tell = ftell(wr->outfile);
       RETIF(tell == -1);
 
-      uint32_t const bsize = dw_write_data(wr->current_block, wr->current_pos, wr->outfile);
+      uint32_t const bsize = dw_write_data(wr->current_block, wr->outfile);
       RETIF(bsize == 0xffffffff);
 
       dirtree_reg_add_block(dt, bsize, tell);
     }
 
-  wr->current_pos = 0;
+  wr->current_block.clear();
   return 0;
 }
 
@@ -89,12 +89,12 @@ int dirtree_reg_append(struct sqsh_writer * const wr, struct dirtree * const dt,
   size_t const block_size = (size_t) 1 << wr->super.block_log;
   while (len != 0)
     {
-      size_t const remaining = block_size - wr->current_pos;
+      size_t const remaining = block_size - wr->current_block.size();
       size_t const added = len > remaining ? remaining : len;
-      memcpy(wr->current_block + wr->current_pos, buff, added);
-      wr->current_pos += added;
+      for (std::size_t i = 0; i < added; ++i)
+        wr->current_block.push_back(buff[i]);
 
-      if (wr->current_pos == block_size)
+      if (wr->current_block.size() == block_size)
         RETIF(dirtree_reg_flush(wr, dt));
 
       len -= added;

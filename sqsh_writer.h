@@ -60,10 +60,8 @@ struct sqsh_writer
   struct mdw dentry_writer;
   struct mdw inode_writer;
   FILE * outfile;
-  unsigned char * current_block;
-  size_t current_pos;
-  unsigned char * current_fragment;
-  size_t fragment_pos;
+  std::vector<unsigned char> current_block;
+  std::vector<unsigned char> current_fragment;
   std::vector<fragment_entry> fragments;
   std::unordered_map<uint32_t, uint16_t> ids;
   std::unordered_map<uint16_t, uint32_t> rids;
@@ -87,7 +85,7 @@ int u32cmp(void const *, void const *);
 int sqsh_writer_init(struct sqsh_writer *, char const *, int);
 int sqsh_writer_destroy(struct sqsh_writer *);
 int sqsh_writer_write_header(struct sqsh_writer *);
-size_t sqsh_writer_put_fragment(struct sqsh_writer *, unsigned char const *, size_t);
+size_t sqsh_writer_put_fragment(struct sqsh_writer *, std::vector<unsigned char> const &);
 int sqsh_writer_flush_fragment(struct sqsh_writer *);
 int sqsh_writer_write_tables(struct sqsh_writer *);
 

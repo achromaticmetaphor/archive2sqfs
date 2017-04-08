@@ -20,23 +20,25 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdio.h>
 
+#include <vector>
+
 #include <zlib.h>
 
 #include "sqsh_defs.h"
 
-uint32_t dw_write_data(unsigned char const * const buff, size_t const len, FILE * const out)
+uint32_t dw_write_data(std::vector<unsigned char> const & buff, FILE * const out)
 {
-  if (len == 0)
+  if (buff.size() == 0)
     return SQFS_BLOCK_COMPRESSED_BIT;
 
-  unsigned long int zsize = compressBound(len);
+  unsigned long int zsize = compressBound(buff.size());
   unsigned char zbuff[zsize];
-  if (compress2(zbuff, &zsize, buff, len, 9) != Z_OK)
+  if (compress2(zbuff, &zsize, buff.data(), buff.size(), 9) != Z_OK)
     return 0xffffffff;
 
-  bool const compressed = zsize < len;
-  unsigned char const * const block = compressed ? zbuff : buff;
-  size_t const size = compressed ? zsize : len;
+  bool const compressed = zsize < buff.size();
+  unsigned char const * const block = compressed ? zbuff : buff.data();
+  size_t const size = compressed ? zsize : buff.size();
 
   if (fwrite(block, 1, size, out) != size)
     return 0xffffffff;

@@ -23,6 +23,8 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdio.h>
 
-uint32_t dw_write_data(unsigned char const *, size_t, FILE *);
+#include <vector>
+
+uint32_t dw_write_data(std::vector<unsigned char> const &, FILE *);
 
 #endif
