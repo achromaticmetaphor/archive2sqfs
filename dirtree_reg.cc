@@ -21,7 +21,6 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <errno.h>
 #include <inttypes.h>
 #include <stddef.h>
-#include <string.h>
 
 #include "dirtree.h"
 #include "dw.h"

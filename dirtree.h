@@ -56,7 +56,7 @@ struct dirtree
 
 struct dirtree_entry
 {
-  char const * name;
+  std::string name;
   std::shared_ptr<dirtree> inode;
 };
 
@@ -71,12 +71,6 @@ struct dirtree_dir : public dirtree
   {
     inode_type = SQFS_INODE_TYPE_DIR;
     mode = 0755;
-  }
-
-  ~dirtree_dir()
-  {
-    for (auto entry : entries)
-      free(const_cast<char *>(entry.name));
   }
 
   void dump_tree() const;
@@ -105,16 +99,11 @@ struct dirtree_reg : public dirtree
 
 struct dirtree_sym : public dirtree
 {
-  char * target;
+  std::string target;
 
   dirtree_sym(sqsh_writer * wr) : dirtree(wr)
   {
     inode_type = SQFS_INODE_TYPE_SYM;
-  }
-
-  ~dirtree_sym()
-  {
-    free(target);
   }
 };
 
@@ -127,14 +116,14 @@ struct dirtree_dev : public dirtree
 
 std::shared_ptr<dirtree> dirtree_reg_new(struct sqsh_writer *);
 std::shared_ptr<dirtree> dirtree_dir_new(struct sqsh_writer *);
-std::shared_ptr<dirtree> dirtree_get_subdir_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, char const *);
+std::shared_ptr<dirtree> dirtree_get_subdir_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, std::string const &);
 int dirtree_write_tables(struct sqsh_writer *, struct dirtree *);
-std::shared_ptr<dirtree> dirtree_put_reg_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, char const *);
+std::shared_ptr<dirtree> dirtree_put_reg_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, std::string const &);
 int dirtree_reg_append(struct sqsh_writer *, struct dirtree *, unsigned char const *, size_t);
 int dirtree_reg_flush(struct sqsh_writer *, struct dirtree *);
-std::shared_ptr<dirtree> dirtree_put_sym_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, char const *, char const *);
-std::shared_ptr<dirtree> dirtree_put_dev_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, char const *, uint16_t, uint32_t);
-std::shared_ptr<dirtree> dirtree_put_ipc_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, char const *, uint16_t);
+std::shared_ptr<dirtree> dirtree_put_sym_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, std::string const &, std::string const &);
+std::shared_ptr<dirtree> dirtree_put_dev_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, std::string const &, uint16_t, uint32_t);
+std::shared_ptr<dirtree> dirtree_put_ipc_for_path(struct sqsh_writer *, std::shared_ptr<dirtree>, std::string const &, uint16_t);
 std::shared_ptr<dirtree> dirtree_sym_new(sqsh_writer *);
 std::shared_ptr<dirtree> dirtree_dev_new(sqsh_writer *);
 std::shared_ptr<dirtree> dirtree_ipc_new(sqsh_writer *);

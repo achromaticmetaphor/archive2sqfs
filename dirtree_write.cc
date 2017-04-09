@@ -20,7 +20,6 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <inttypes.h>
 #include <stddef.h>
-#include <string.h>
 
 #include <algorithm>
 #include <memory>
@@ -76,7 +75,7 @@ static int dirtree_write_dirtable_segment(struct sqsh_writer * const wr, struct 
   for (size_t i = 0; i < header.count; i++)
     {
       dirtree_entry const & entry = dir.entries[*offset + i];
-      size_t const len_name = strlen(entry.name);
+      size_t const len_name = entry.name.size();
       RETIF(len_name > 0xff);
       unsigned char buff[8 + len_name];
 
@@ -108,7 +107,7 @@ static int dirtree_write_dirtable(struct sqsh_writer * const wr, struct dirtree 
   dt->nlink = 2;
   dir.filesize = 3;
 
-  std::sort(dir.entries.begin(), dir.entries.end(), [](auto a, auto b) -> bool { return strcmp(a.name, b.name) < 0; });
+  std::sort(dir.entries.begin(), dir.entries.end(), [](auto a, auto b) -> bool { return a.name < b.name; });
   size_t offset = 0;
   while (offset < dir.entries.size())
     RETIF(dirtree_write_dirtable_segment(wr, dt, &offset));
@@ -220,14 +219,15 @@ static int dirtree_write_inode(struct sqsh_writer * const writer, dirtree & dt, 
       case SQFS_INODE_TYPE_SYM:
         {
           dirtree_sym & sym = static_cast<dirtree_sym &>(dt);
-          size_t const tlen = strlen(sym.target);
+          size_t const tlen = sym.target.size();
           size_t const inode_len = tlen + (has_xattr ? 28 : 24);
           unsigned char buff[inode_len];
 
           dirtree_inode_common(writer, &dt, buff);
           le32(buff + 16, dt.nlink);
           le32(buff + 20, tlen);
-          memcpy(buff + 24, sym.target, tlen);
+          for (std::size_t i = 0; i < sym.target.size(); ++i)
+            i[buff + 24] = sym.target[i];
 
           if (has_xattr)
             le32(buff + 24 + tlen, dt.xattr);

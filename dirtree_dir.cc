@@ -18,101 +18,79 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #define _POSIX_C_SOURCE 200809L
 
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include <algorithm>
+#include <iostream>
 #include <memory>
+#include <sstream>
 #include <vector>
 
 #include "dirtree.h"
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
 
-static int dirtree_dirop_prep(struct dirtree * const dt)
-{
-  return 0;
-}
-
 std::shared_ptr<dirtree> dirtree_dir_new(sqsh_writer * wr)
 {
   return std::shared_ptr<dirtree>(new dirtree_dir(wr));
 }
 
-static std::shared_ptr<dirtree> dirtree_get_child(sqsh_writer * wr, std::shared_ptr<dirtree> const dt, char const * name, std::shared_ptr<dirtree> (*con)(sqsh_writer *))
+static std::shared_ptr<dirtree> dirtree_get_child(sqsh_writer * wr, std::shared_ptr<dirtree> const dt, std::string const & name, std::shared_ptr<dirtree> (*con)(sqsh_writer *))
 {
   dirtree_dir & dir = *static_cast<dirtree_dir *>(&*dt);
-  auto entry = std::find_if(dir.entries.begin(), dir.entries.end(), [&](auto entry) -> bool { return strcmp(name, entry.name) == 0; });
+  auto entry = std::find_if(dir.entries.begin(), dir.entries.end(), [&](auto entry) -> bool { return name == entry.name; });
   if (entry != dir.entries.end())
     return entry->inode;
 
-  auto new_name = strdup(name);
-  if (name == nullptr)
-    return nullptr;
-
   auto child = con(wr);
-  dir.entries.push_back({new_name, child});
+  dir.entries.push_back({name, child});
   return child;
 }
 
-std::shared_ptr<dirtree> dirtree_get_subdir(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const dt, char const * name)
+std::shared_ptr<dirtree> dirtree_get_subdir(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const dt, std::string const & name)
 {
   return dirtree_get_child(wr, dt, name, dirtree_dir_new);
 }
 
-std::shared_ptr<dirtree> dirtree_put_reg(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const dt, char const * const name)
+std::shared_ptr<dirtree> dirtree_put_reg(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const dt, std::string const & name)
 {
   return dirtree_get_child(wr, dt, name, dirtree_reg_new);
 }
 
-std::shared_ptr<dirtree> dirtree_get_subdir_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const dt, char const * const path)
+std::shared_ptr<dirtree> dirtree_get_subdir_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const dt, std::string const & path)
 {
-  char pathtokens[strlen(path) + 1];
-  strcpy(pathtokens, path);
-
-  char * ststate;
   std::shared_ptr<dirtree> subdir = dt;
-  for (char const * component = strtok_r(pathtokens, "/", &ststate); component != nullptr; component = strtok_r(nullptr, "/", &ststate))
-    if (component[0] != 0 && subdir != nullptr)
+  std::istringstream pathtokens(path);
+  std::string component;
+  while (std::getline(pathtokens, component, '/'))
+    if (!component.empty())
       subdir = dirtree_get_subdir(wr, subdir, component);
-
   return subdir;
 }
 
-static std::shared_ptr<dirtree> dirtree_put_nondir_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, char const * const path, std::shared_ptr<dirtree> (*con)(struct sqsh_writer *))
+static std::shared_ptr<dirtree> dirtree_put_nondir_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, std::string const & path, std::shared_ptr<dirtree> (*con)(struct sqsh_writer *))
 {
-  char tmppath[strlen(path) + 1];
-  strcpy(tmppath, path);
-
-  char * const sep = strrchr(tmppath, '/');
-  char * const name = sep == nullptr ? tmppath : sep + 1;
-  char const * const parent = sep == nullptr ? "/" : tmppath;
-
-  if (sep != nullptr)
-    *sep = 0;
+  auto sep = path.rfind('/');
+  auto name = sep == path.npos ? path : path.substr(sep + 1);
+  auto parent = sep == path.npos ? "/" : path.substr(0, sep);
 
   std::shared_ptr<dirtree> parent_dt = dirtree_get_subdir_for_path(wr, root, parent);
   return parent_dt == nullptr ? nullptr : dirtree_get_child(wr, parent_dt, name, con);
 }
 
-std::shared_ptr<dirtree> dirtree_put_reg_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, char const * const path)
+std::shared_ptr<dirtree> dirtree_put_reg_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, std::string const & path)
 {
   return dirtree_put_nondir_for_path(wr, root, path, dirtree_reg_new);
 }
 
-std::shared_ptr<dirtree> dirtree_put_sym_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, char const * const path, char const * const target)
+std::shared_ptr<dirtree> dirtree_put_sym_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, std::string const & path, std::string const & target)
 {
   std::shared_ptr<dirtree> const sym = dirtree_put_nondir_for_path(wr, root, path, dirtree_sym_new);
-  if (sym == nullptr)
-    return nullptr;
+  if (sym != nullptr)
+    static_cast<dirtree_sym *>(&*sym)->target = target;
 
-  char *& symtarget = static_cast<dirtree_sym *>(&*sym)->target;
-  symtarget = strdup(target);
-  return symtarget == nullptr ? nullptr : sym;
+  return sym;
 }
 
-std::shared_ptr<dirtree> dirtree_put_dev_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, char const * const path, uint16_t type, uint32_t rdev)
+std::shared_ptr<dirtree> dirtree_put_dev_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, std::string const & path, uint16_t type, uint32_t rdev)
 {
   std::shared_ptr<dirtree> const dev = dirtree_put_nondir_for_path(wr, root, path, dirtree_dev_new);
   if (dev != nullptr)
@@ -124,7 +102,7 @@ std::shared_ptr<dirtree> dirtree_put_dev_for_path(struct sqsh_writer * const wr,
   return dev;
 }
 
-std::shared_ptr<dirtree> dirtree_put_ipc_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, char const * const path, uint16_t type)
+std::shared_ptr<dirtree> dirtree_put_ipc_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, std::string const & path, uint16_t type)
 {
   std::shared_ptr<dirtree> const ipc = dirtree_put_nondir_for_path(wr, root, path, dirtree_ipc_new);
   if (ipc != nullptr)

@@ -21,7 +21,6 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 
 #include <search.h>
 
@@ -39,7 +38,8 @@ static int fround_to(FILE * const f, long int const block)
 
   size_t const fill = block - (tell % block);
   unsigned char buff[fill];
-  memset(buff, 0, fill);
+  for (auto i = 0; i < fill; ++i)
+    buff[i] = 0;
   return fwrite(buff, 1, fill, f) != fill;
 }
 
