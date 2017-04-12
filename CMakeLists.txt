@@ -13,7 +13,7 @@ link_directories(${ZLIB_LIBRARY_DIRS})
 add_definitions(${LIBARCHIVE_CFLAGS_OTHER})
 add_definitions(${ZLIB_CFLAGS_OTHER})
 
-add_executable(archive2sqfs archive2sqfs dirtree dirtree_dir dirtree_reg dirtree_spc dirtree_write dw mdw sqsh_writer)
+add_executable(archive2sqfs archive2sqfs dirtree dirtree_dir dirtree_reg dirtree_write dw mdw sqsh_writer)
 
 target_link_libraries(archive2sqfs ${LIBARCHIVE_LIBRARIES})
 target_link_libraries(archive2sqfs ${ZLIB_LIBRARIES})

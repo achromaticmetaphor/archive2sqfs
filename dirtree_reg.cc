@@ -28,32 +28,24 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "sqsh_writer.h"
 #include "util.h"
 
-std::shared_ptr<dirtree> dirtree_reg_new(sqsh_writer * wr)
+void dirtree_reg::add_block(size_t size, long int const sb)
 {
-  return std::shared_ptr<dirtree>(new dirtree_reg(wr));
+  if (blocks.size() == 0)
+    start_block = sb;
+  blocks.push_back(size);
 }
 
-static void dirtree_reg_add_block(struct dirtree * const dt, size_t size, long int const start_block)
-{
-  dirtree_reg & reg = *static_cast<dirtree_reg *>(dt);
-  if (reg.blocks.size() == 0)
-    reg.start_block = start_block;
-
-  reg.blocks.push_back(size);
-}
-
-int dirtree_reg_flush(struct sqsh_writer * const wr, struct dirtree * const dt)
+int dirtree_reg::flush(struct sqsh_writer * const wr)
 {
   if (wr->current_block.size() == 0)
     return 0;
 
-  dirtree_reg & reg = *static_cast<dirtree_reg *>(dt);
   size_t const block_size = (size_t) 1 << wr->super.block_log;
-  if (wr->current_block.size() < block_size && reg.blocks.size() == 0)
+  if (wr->current_block.size() < block_size && blocks.size() == 0)
     {
-      reg.offset = sqsh_writer_put_fragment(wr, wr->current_block);
-      RETIF(reg.offset == block_size);
-      reg.fragment = wr->fragments.size();
+      offset = wr->put_fragment();
+      RETIF(offset == block_size);
+      fragment = wr->fragments.size();
     }
   else
     {
@@ -63,17 +55,16 @@ int dirtree_reg_flush(struct sqsh_writer * const wr, struct dirtree * const dt)
       uint32_t const bsize = dw_write_data(wr->current_block, wr->outfile);
       RETIF(bsize == 0xffffffff);
 
-      dirtree_reg_add_block(dt, bsize, tell);
+      add_block(bsize, tell);
     }
 
   wr->current_block.clear();
   return 0;
 }
 
-int dirtree_reg_append(struct sqsh_writer * const wr, struct dirtree * const dt, unsigned char const * buff, size_t len)
+int dirtree_reg::append(struct sqsh_writer * const wr, unsigned char const * buff, size_t len)
 {
-  dirtree_reg & reg = *static_cast<dirtree_reg *>(dt);
-  reg.file_size += len;
+  file_size += len;
   size_t const block_size = (size_t) 1 << wr->super.block_log;
   while (len != 0)
     {
@@ -83,7 +74,7 @@ int dirtree_reg_append(struct sqsh_writer * const wr, struct dirtree * const dt,
         wr->current_block.push_back(buff[i]);
 
       if (wr->current_block.size() == block_size)
-        RETIF(dirtree_reg_flush(wr, dt));
+        RETIF(flush(wr));
 
       len -= added;
       buff += added;

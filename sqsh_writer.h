@@ -80,6 +80,16 @@ struct sqsh_writer
       return found->second;
   }
 
+  uint32_t next_inode_number()
+  {
+    return next_inode++;
+  }
+
+  int write_header();
+  size_t put_fragment();
+  int flush_fragment();
+  int write_tables();
+
   sqsh_writer(char const * path, int blog = SQFS_BLOCK_LOG_DEFAULT)
   {
     super.block_log = blog;
@@ -94,16 +104,5 @@ struct sqsh_writer
       fclose(outfile);
   }
 };
-
-int u32cmp(void const *, void const *);
-int sqsh_writer_write_header(struct sqsh_writer *);
-size_t sqsh_writer_put_fragment(struct sqsh_writer *, std::vector<unsigned char> const &);
-int sqsh_writer_flush_fragment(struct sqsh_writer *);
-int sqsh_writer_write_tables(struct sqsh_writer *);
-
-static inline uint32_t sqsh_writer_next_inode_number(struct sqsh_writer * const wr)
-{
-  return wr->next_inode++;
-}
 
 #endif

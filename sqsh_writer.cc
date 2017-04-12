@@ -48,72 +48,65 @@ static void sqsh_writer_append_fragment(struct sqsh_writer * const wr, uint32_t 
   wr->fragments.push_back({start_block, size});
 }
 
-int sqsh_writer_flush_fragment(struct sqsh_writer * const wr)
+int sqsh_writer::flush_fragment()
 {
-  if (wr->current_fragment.size() == 0)
+  if (current_fragment.size() == 0)
     return 0;
 
-  long int const tell = ftell(wr->outfile);
+  long int const tell = ftell(outfile);
   if (tell == -1)
     return 1;
 
-  uint32_t const bsize = dw_write_data(wr->current_fragment, wr->outfile);
+  uint32_t const bsize = dw_write_data(current_fragment, outfile);
   if (bsize == 0xffffffff)
     return 1;
 
-  wr->current_fragment.clear();
-  sqsh_writer_append_fragment(wr, bsize, tell);
+  current_fragment.clear();
+  sqsh_writer_append_fragment(this, bsize, tell);
   return 0;
 }
 
-size_t sqsh_writer_put_fragment(struct sqsh_writer * const wr, std::vector<unsigned char> const & buff)
+size_t sqsh_writer::put_fragment()
 {
-  size_t const block_size = (size_t) 1 << wr->super.block_log;
+  size_t const block_size = (size_t) 1 << super.block_log;
 
-  if (wr->current_fragment.size() + buff.size() > block_size)
-    if (sqsh_writer_flush_fragment(wr))
+  if (current_fragment.size() + current_block.size() > block_size)
+    if (flush_fragment())
       return block_size;
 
-  size_t const offset = wr->current_fragment.size();
-  for (auto e : buff)
-    wr->current_fragment.push_back(e);
+  size_t const offset = current_fragment.size();
+  for (auto e : current_block)
+    current_fragment.push_back(e);
   return offset;
 }
 
-int u32cmp(void const * va, void const * vb)
-{
-  uint32_t const a = *(uint32_t const *) va;
-  uint32_t const b = *(uint32_t const *) vb;
-  return a < b ? -1 : a > b;
-}
-
-int sqsh_writer_write_header(struct sqsh_writer * const writer)
+int sqsh_writer::write_header()
 {
   uint8_t header[96];
 
   le32(header, SQFS_MAGIC);
-  le32(header + 4, writer->next_inode - 1);
+  le32(header + 4, next_inode - 1);
   le32(header + 8, 0);
-  le32(header + 12, 1u << writer->super.block_log);
-  le32(header + 16, writer->fragments.size());
+  le32(header + 12, 1u << super.block_log);
+  le32(header + 16, fragments.size());
 
-  le16(header + 20, writer->super.compression);
-  le16(header + 22, writer->super.block_log);
-  le16(header + 24, writer->super.flags);
-  le16(header + 26, writer->ids.size());
+  le16(header + 20, super.compression);
+  le16(header + 22, super.block_log);
+  le16(header + 24, super.flags);
+  le16(header + 26, ids.size());
   le16(header + 28, SQFS_MAJOR);
   le16(header + 30, SQFS_MINOR);
 
-  le64(header + 32, writer->super.root_inode);
-  le64(header + 40, writer->super.bytes_used);
-  le64(header + 48, writer->super.id_table_start);
-  le64(header + 56, writer->super.xattr_table_start);
-  le64(header + 64, writer->super.inode_table_start);
-  le64(header + 72, writer->super.directory_table_start);
-  le64(header + 80, writer->super.fragment_table_start);
-  le64(header + 88, writer->super.lookup_table_start);
+  le64(header + 32, super.root_inode);
+  le64(header + 40, super.bytes_used);
+  le64(header + 48, super.id_table_start);
+  le64(header + 56, super.xattr_table_start);
+  le64(header + 64, super.inode_table_start);
+  le64(header + 72, super.directory_table_start);
+  le64(header + 80, super.fragment_table_start);
+  le64(header + 88, super.lookup_table_start);
 
-  return fround_to(writer->outfile, SQFS_PAD_SIZE) || fseek(writer->outfile, 0L, SEEK_SET) || fwrite(header, 1, sizeof(header), writer->outfile) != sizeof(header);
+  return fround_to(outfile, SQFS_PAD_SIZE) || fseek(outfile, 0L, SEEK_SET) || fwrite(header, 1, sizeof(header), outfile) != sizeof(header);
 }
 
 #define ITD_SHIFT(ENTRY_LB) (SQFS_META_BLOCK_SIZE_LB - (ENTRY_LB))
@@ -186,20 +179,20 @@ static inline void tell_wr(struct sqsh_writer * const wr, int * const error, uin
   *error = *error || cb(wr);
 }
 
-int sqsh_writer_write_tables(struct sqsh_writer * const wr)
+int sqsh_writer::write_tables()
 {
   int error = 0;
 
-#define TELL_WR(T) tell_wr(wr, &error, &wr->super.T##_table_start, sqsh_writer_write_##T##_table)
+#define TELL_WR(T) tell_wr(this, &error, &super.T##_table_start, sqsh_writer_write_##T##_table)
   TELL_WR(inode);
   TELL_WR(directory);
   TELL_WR(fragment);
   TELL_WR(id);
 #undef TELL_WR
 
-  long int const tell = ftell(wr->outfile);
+  long int const tell = ftell(outfile);
   error = error || tell == -1;
-  wr->super.bytes_used = tell;
+  super.bytes_used = tell;
 
   return error;
 }

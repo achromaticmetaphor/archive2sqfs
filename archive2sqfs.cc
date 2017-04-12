@@ -78,7 +78,7 @@ int main(int argc, char * argv[])
     }
 
   struct sqsh_writer writer(outfilepath);
-  std::shared_ptr<dirtree> const root = dirtree_dir_new(&writer);
+  dirtree_dir rootdir(&writer);
 
   FILE * const infile = infilepath == nullptr ? stdin : fopen(infilepath, "rb");
   struct archive * const archive = infile == nullptr ? nullptr : archive_read_new();
@@ -95,51 +95,54 @@ int main(int argc, char * argv[])
   while (!failed && archive_read_next_header(archive, &entry) == ARCHIVE_OK)
     {
       char const * const pathname = strip_path(strip, archive_entry_pathname(entry));
-      std::shared_ptr<dirtree> dt = nullptr;
+      dirtree * dt = nullptr;
       mode_t const filetype = archive_entry_filetype(entry);
       switch (filetype)
         {
           case AE_IFDIR:
-            dt = dirtree_get_subdir_for_path(&writer, root, pathname);
+            dt = rootdir.subdir_for_path(&writer, pathname);
             break;
 
           case AE_IFREG:
-            dt = dirtree_put_reg_for_path(&writer, root, pathname);
-            failed = failed || dt == nullptr;
+            {
+              dt = rootdir.put_reg(&writer, pathname);
+              dirtree_reg & reg = *static_cast<dirtree_reg *>(&*dt);
+              failed = failed || dt == nullptr;
 
-            int64_t i;
-            for (i = archive_entry_size(entry); i >= block_size && !failed; i -= block_size)
-              {
-                failed = failed || archive_read_data(archive, buff, block_size) != block_size;
-                failed = failed || dirtree_reg_append(&writer, &*dt, buff, block_size);
-              }
-            if (i > 0 && !failed)
-              {
-                failed = failed || archive_read_data(archive, buff, i) != i;
-                failed = failed || dirtree_reg_append(&writer, &*dt, buff, i);
-              }
+              int64_t i;
+              for (i = archive_entry_size(entry); i >= block_size && !failed; i -= block_size)
+                {
+                  failed = failed || archive_read_data(archive, buff, block_size) != block_size;
+                  failed = failed || reg.append(&writer, buff, block_size);
+                }
+              if (i > 0 && !failed)
+                {
+                  failed = failed || archive_read_data(archive, buff, i) != i;
+                  failed = failed || reg.append(&writer, buff, i);
+                }
 
-            failed = failed || dirtree_reg_flush(&writer, &*dt);
+              failed = failed || reg.flush(&writer);
+            }
             break;
 
           case AE_IFLNK:
-            dt = dirtree_put_sym_for_path(&writer, root, pathname, archive_entry_symlink(entry));
+            dt = rootdir.put_sym(&writer, pathname, archive_entry_symlink(entry));
             break;
 
           case AE_IFBLK:
-            dt = dirtree_put_dev_for_path(&writer, root, pathname, SQFS_INODE_TYPE_BLK, archive_entry_rdev(entry));
+            dt = rootdir.put_dev(&writer, pathname, SQFS_INODE_TYPE_BLK, archive_entry_rdev(entry));
             break;
 
           case AE_IFCHR:
-            dt = dirtree_put_dev_for_path(&writer, root, pathname, SQFS_INODE_TYPE_CHR, archive_entry_rdev(entry));
+            dt = rootdir.put_dev(&writer, pathname, SQFS_INODE_TYPE_CHR, archive_entry_rdev(entry));
             break;
 
           case AE_IFSOCK:
-            dt = dirtree_put_ipc_for_path(&writer, root, pathname, SQFS_INODE_TYPE_SOCK);
+            dt = rootdir.put_ipc(&writer, pathname, SQFS_INODE_TYPE_SOCK);
             break;
 
           case AE_IFIFO:
-            dt = dirtree_put_ipc_for_path(&writer, root, pathname, SQFS_INODE_TYPE_PIPE);
+            dt = rootdir.put_ipc(&writer, pathname, SQFS_INODE_TYPE_PIPE);
             break;
 
           default:;
@@ -155,8 +158,8 @@ int main(int argc, char * argv[])
         }
     }
 
-  failed = failed || dirtree_write_tables(&writer, &*root);
-  failed = failed || sqsh_writer_write_header(&writer);
+  failed = failed || rootdir.write_tables(&writer);
+  failed = failed || writer.write_header();
 
   if (archive != nullptr)
     archive_read_free(archive);

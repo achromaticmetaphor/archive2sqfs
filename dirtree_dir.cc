@@ -28,36 +28,26 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
 
-std::shared_ptr<dirtree> dirtree_dir_new(sqsh_writer * wr)
+template <typename C>
+static dirtree * dirtree_get_child(dirtree_dir * const dir, std::string const & name, C con)
 {
-  return std::shared_ptr<dirtree>(new dirtree_dir(wr));
+  auto entry = std::find_if(dir->entries.begin(), dir->entries.end(), [&](auto entry) -> bool { return name == entry.name; });
+  if (entry != dir->entries.end())
+    return &*entry->inode;
+
+  auto child = con();
+  dir->entries.push_back({name, child});
+  return &*child;
 }
 
-static std::shared_ptr<dirtree> dirtree_get_child(sqsh_writer * wr, std::shared_ptr<dirtree> const dt, std::string const & name, std::shared_ptr<dirtree> (*con)(sqsh_writer *))
+dirtree_dir * dirtree_get_subdir(sqsh_writer * const wr, dirtree_dir * const dt, std::string const & name)
 {
-  dirtree_dir & dir = *static_cast<dirtree_dir *>(&*dt);
-  auto entry = std::find_if(dir.entries.begin(), dir.entries.end(), [&](auto entry) -> bool { return name == entry.name; });
-  if (entry != dir.entries.end())
-    return entry->inode;
-
-  auto child = con(wr);
-  dir.entries.push_back({name, child});
-  return child;
+  return static_cast<dirtree_dir *>(dirtree_get_child(dt, name, [&]() -> auto { return std::shared_ptr<dirtree>(new dirtree_dir(wr)); }));
 }
 
-std::shared_ptr<dirtree> dirtree_get_subdir(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const dt, std::string const & name)
+dirtree_dir * dirtree_dir::subdir_for_path(sqsh_writer * const wr, std::string const & path)
 {
-  return dirtree_get_child(wr, dt, name, dirtree_dir_new);
-}
-
-std::shared_ptr<dirtree> dirtree_put_reg(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const dt, std::string const & name)
-{
-  return dirtree_get_child(wr, dt, name, dirtree_reg_new);
-}
-
-std::shared_ptr<dirtree> dirtree_get_subdir_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const dt, std::string const & path)
-{
-  std::shared_ptr<dirtree> subdir = dt;
+  dirtree_dir * subdir = this;
   std::istringstream pathtokens(path);
   std::string component;
   while (std::getline(pathtokens, component, '/'))
@@ -66,47 +56,33 @@ std::shared_ptr<dirtree> dirtree_get_subdir_for_path(struct sqsh_writer * const 
   return subdir;
 }
 
-static std::shared_ptr<dirtree> dirtree_put_nondir_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, std::string const & path, std::shared_ptr<dirtree> (*con)(struct sqsh_writer *))
+template <typename C>
+static dirtree * dirtree_put_nondir_for_path(sqsh_writer * const wr, dirtree_dir * const root, std::string const & path, C con)
 {
   auto sep = path.rfind('/');
   auto name = sep == path.npos ? path : path.substr(sep + 1);
   auto parent = sep == path.npos ? "/" : path.substr(0, sep);
 
-  std::shared_ptr<dirtree> parent_dt = dirtree_get_subdir_for_path(wr, root, parent);
-  return parent_dt == nullptr ? nullptr : dirtree_get_child(wr, parent_dt, name, con);
+  auto parent_dt = root->subdir_for_path(wr, parent);
+  return parent_dt == nullptr ? nullptr : dirtree_get_child(static_cast<dirtree_dir *>(&*parent_dt), name, con);
 }
 
-std::shared_ptr<dirtree> dirtree_put_reg_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, std::string const & path)
+dirtree_reg * dirtree_dir::put_reg(struct sqsh_writer * const wr, std::string const & path)
 {
-  return dirtree_put_nondir_for_path(wr, root, path, dirtree_reg_new);
+  return static_cast<dirtree_reg *>(dirtree_put_nondir_for_path(wr, this, path, [&]() -> auto { return std::shared_ptr<dirtree>(new dirtree_reg(wr)); }));
 }
 
-std::shared_ptr<dirtree> dirtree_put_sym_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, std::string const & path, std::string const & target)
+dirtree_sym * dirtree_dir::put_sym(struct sqsh_writer * const wr, std::string const & path, std::string const & target)
 {
-  std::shared_ptr<dirtree> const sym = dirtree_put_nondir_for_path(wr, root, path, dirtree_sym_new);
-  if (sym != nullptr)
-    static_cast<dirtree_sym *>(&*sym)->target = target;
-
-  return sym;
+  return static_cast<dirtree_sym *>(dirtree_put_nondir_for_path(wr, this, path, [&]() -> auto { return std::shared_ptr<dirtree>(new dirtree_sym(wr, target)); }));
 }
 
-std::shared_ptr<dirtree> dirtree_put_dev_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, std::string const & path, uint16_t type, uint32_t rdev)
+dirtree_dev * dirtree_dir::put_dev(struct sqsh_writer * const wr, std::string const & path, uint16_t type, uint32_t rdev)
 {
-  std::shared_ptr<dirtree> const dev = dirtree_put_nondir_for_path(wr, root, path, dirtree_dev_new);
-  if (dev != nullptr)
-    {
-      dev->inode_type = type;
-      static_cast<dirtree_dev *>(&*dev)->rdev = rdev;
-    }
-
-  return dev;
+  return static_cast<dirtree_dev *>(dirtree_put_nondir_for_path(wr, this, path, [&]() -> auto { return std::shared_ptr<dirtree>(new dirtree_dev(wr, type, rdev)); }));
 }
 
-std::shared_ptr<dirtree> dirtree_put_ipc_for_path(struct sqsh_writer * const wr, std::shared_ptr<dirtree> const root, std::string const & path, uint16_t type)
+dirtree_ipc * dirtree_dir::put_ipc(sqsh_writer * const wr, std::string const & path, uint16_t type)
 {
-  std::shared_ptr<dirtree> const ipc = dirtree_put_nondir_for_path(wr, root, path, dirtree_ipc_new);
-  if (ipc != nullptr)
-    ipc->inode_type = type;
-
-  return ipc;
+  return static_cast<dirtree_ipc *>(dirtree_put_nondir_for_path(wr, this, path, [&]() -> auto { return std::shared_ptr<dirtree>(new dirtree_ipc(wr, type)); }));
 }
