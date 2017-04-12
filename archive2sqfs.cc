@@ -100,12 +100,12 @@ int main(int argc, char * argv[])
       switch (filetype)
         {
           case AE_IFDIR:
-            dt = rootdir.subdir_for_path(&writer, pathname);
+            dt = rootdir.subdir_for_path(pathname);
             break;
 
           case AE_IFREG:
             {
-              dt = rootdir.put_reg(&writer, pathname);
+              dt = rootdir.put_reg(pathname);
               dirtree_reg & reg = *static_cast<dirtree_reg *>(&*dt);
               failed = failed || dt == nullptr;
 
@@ -113,36 +113,36 @@ int main(int argc, char * argv[])
               for (i = archive_entry_size(entry); i >= block_size && !failed; i -= block_size)
                 {
                   failed = failed || archive_read_data(archive, buff, block_size) != block_size;
-                  failed = failed || reg.append(&writer, buff, block_size);
+                  failed = failed || reg.append(buff, block_size);
                 }
               if (i > 0 && !failed)
                 {
                   failed = failed || archive_read_data(archive, buff, i) != i;
-                  failed = failed || reg.append(&writer, buff, i);
+                  failed = failed || reg.append(buff, i);
                 }
 
-              failed = failed || reg.flush(&writer);
+              failed = failed || reg.flush();
             }
             break;
 
           case AE_IFLNK:
-            dt = rootdir.put_sym(&writer, pathname, archive_entry_symlink(entry));
+            dt = rootdir.put_sym(pathname, archive_entry_symlink(entry));
             break;
 
           case AE_IFBLK:
-            dt = rootdir.put_dev(&writer, pathname, SQFS_INODE_TYPE_BLK, archive_entry_rdev(entry));
+            dt = rootdir.put_dev(pathname, SQFS_INODE_TYPE_BLK, archive_entry_rdev(entry));
             break;
 
           case AE_IFCHR:
-            dt = rootdir.put_dev(&writer, pathname, SQFS_INODE_TYPE_CHR, archive_entry_rdev(entry));
+            dt = rootdir.put_dev(pathname, SQFS_INODE_TYPE_CHR, archive_entry_rdev(entry));
             break;
 
           case AE_IFSOCK:
-            dt = rootdir.put_ipc(&writer, pathname, SQFS_INODE_TYPE_SOCK);
+            dt = rootdir.put_ipc(pathname, SQFS_INODE_TYPE_SOCK);
             break;
 
           case AE_IFIFO:
-            dt = rootdir.put_ipc(&writer, pathname, SQFS_INODE_TYPE_PIPE);
+            dt = rootdir.put_ipc(pathname, SQFS_INODE_TYPE_PIPE);
             break;
 
           default:;
@@ -158,7 +158,7 @@ int main(int argc, char * argv[])
         }
     }
 
-  failed = failed || rootdir.write_tables(&writer);
+  failed = failed || rootdir.write_tables();
   failed = failed || writer.write_header();
 
   if (archive != nullptr)

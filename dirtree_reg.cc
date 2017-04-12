@@ -35,7 +35,7 @@ void dirtree_reg::add_block(size_t size, long int const sb)
   blocks.push_back(size);
 }
 
-int dirtree_reg::flush(struct sqsh_writer * const wr)
+int dirtree_reg::flush()
 {
   if (wr->current_block.size() == 0)
     return 0;
@@ -62,7 +62,7 @@ int dirtree_reg::flush(struct sqsh_writer * const wr)
   return 0;
 }
 
-int dirtree_reg::append(struct sqsh_writer * const wr, unsigned char const * buff, size_t len)
+int dirtree_reg::append(unsigned char const * buff, size_t len)
 {
   file_size += len;
   size_t const block_size = (size_t) 1 << wr->super.block_log;
@@ -74,7 +74,7 @@ int dirtree_reg::append(struct sqsh_writer * const wr, unsigned char const * buf
         wr->current_block.push_back(buff[i]);
 
       if (wr->current_block.size() == block_size)
-        RETIF(flush(wr));
+        RETIF(flush());
 
       len -= added;
       buff += added;

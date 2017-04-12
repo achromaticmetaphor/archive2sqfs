@@ -39,8 +39,9 @@ struct dirtree
   uint64_t inode_address;
   uint32_t nlink;
   uint32_t xattr;
+  sqsh_writer * wr;
 
-  dirtree(sqsh_writer * wr)
+  dirtree(sqsh_writer * wr) : wr(wr)
   {
     mode = 0644;
     uid = 0;
@@ -51,8 +52,8 @@ struct dirtree
     xattr = 0xffffffffu;
   }
 
-  virtual int write_inode(sqsh_writer *, uint32_t) = 0;
-  int write_tables(struct sqsh_writer *);
+  virtual int write_inode(uint32_t) = 0;
+  int write_tables();
 
   virtual ~dirtree() = default;
 };
@@ -64,7 +65,7 @@ struct dirtree_ipc : public dirtree
     inode_type = type;
   }
 
-  virtual int write_inode(sqsh_writer *, uint32_t);
+  virtual int write_inode(uint32_t);
 };
 
 struct dirtree_entry
@@ -94,9 +95,9 @@ struct dirtree_reg : public dirtree
   }
 
   void add_block(std::size_t, long int);
-  int append(sqsh_writer *, unsigned char const *, std::size_t);
-  int flush(sqsh_writer *);
-  virtual int write_inode(sqsh_writer *, uint32_t);
+  int append(unsigned char const *, std::size_t);
+  int flush();
+  virtual int write_inode(uint32_t);
 };
 
 struct dirtree_sym : public dirtree
@@ -108,7 +109,7 @@ struct dirtree_sym : public dirtree
     inode_type = SQFS_INODE_TYPE_SYM;
   }
 
-  virtual int write_inode(sqsh_writer *, uint32_t);
+  virtual int write_inode(uint32_t);
 };
 
 struct dirtree_dev : public dirtree
@@ -120,7 +121,7 @@ struct dirtree_dev : public dirtree
     inode_type = type;
   }
 
-  virtual int write_inode(sqsh_writer *, uint32_t);
+  virtual int write_inode(uint32_t);
 };
 
 struct dirtree_dir : public dirtree
@@ -137,12 +138,12 @@ struct dirtree_dir : public dirtree
   }
 
   void dump_tree() const;
-  virtual int write_inode(sqsh_writer *, uint32_t);
-  dirtree_dir * subdir_for_path(sqsh_writer *, std::string const &);
-  dirtree_reg * put_reg(sqsh_writer *, std::string const &);
-  dirtree_sym * put_sym(sqsh_writer *, std::string const &, std::string const &);
-  dirtree_dev * put_dev(sqsh_writer *, std::string const &, uint16_t, uint32_t);
-  dirtree_ipc * put_ipc(sqsh_writer *, std::string const &, uint16_t);
+  virtual int write_inode(uint32_t);
+  dirtree_dir * subdir_for_path(std::string const &);
+  dirtree_reg * put_reg(std::string const &);
+  dirtree_sym * put_sym(std::string const &, std::string const &);
+  dirtree_dev * put_dev(std::string const &, uint16_t, uint32_t);
+  dirtree_ipc * put_ipc(std::string const &, uint16_t);
 };
 
 #endif
