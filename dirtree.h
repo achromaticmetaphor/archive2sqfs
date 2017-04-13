@@ -71,7 +71,7 @@ struct dirtree_ipc : public dirtree
 struct dirtree_entry
 {
   std::string name;
-  std::shared_ptr<dirtree> inode;
+  std::unique_ptr<dirtree> inode;
 };
 
 struct dirtree_reg : public dirtree

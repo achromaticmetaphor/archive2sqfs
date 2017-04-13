@@ -60,7 +60,7 @@ struct dirtable_header
 static int dirtree_write_dirtable_segment(struct dirtree * const dt, size_t * const offset)
 {
   dirtree_dir & dir = *static_cast<dirtree_dir *>(dt);
-  std::shared_ptr<dirtree const> const first = dir.entries[*offset].inode;
+  std::unique_ptr<dirtree> & first = dir.entries[*offset].inode;
   struct dirtable_header header = {0, meta_address_block(first->inode_address), first->inode_number};
   header.count = header.segment_len(dir, *offset);
 
@@ -106,7 +106,7 @@ static int dirtree_write_dirtable(struct dirtree * const dt)
   dt->nlink = 2;
   dir.filesize = 3;
 
-  std::sort(dir.entries.begin(), dir.entries.end(), [](auto a, auto b) -> bool { return a.name < b.name; });
+  std::sort(dir.entries.begin(), dir.entries.end(), [](auto & a, auto & b) -> bool { return a.name < b.name; });
   size_t offset = 0;
   while (offset < dir.entries.size())
     RETIF(dirtree_write_dirtable_segment(dt, &offset));
@@ -196,7 +196,7 @@ int dirtree_reg::write_inode(uint32_t const parent_inode_number)
 
 int dirtree_dir::write_inode(uint32_t const parent_inode_number)
 {
-  for (auto entry : entries)
+  for (auto & entry : entries)
     RETIF(entry.inode->write_inode(inode_number));
 
   RETIF(dirtree_write_dirtable(this));

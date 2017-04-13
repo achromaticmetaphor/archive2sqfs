@@ -28,7 +28,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 static void dirtree_dump_with_prefix(dirtree_dir const & dir, std::string const & prefix)
 {
   std::cout << prefix << std::endl;
-  for (auto entry : dir.entries)
+  for (auto & entry : dir.entries)
     {
       if (entry.inode->inode_type == SQFS_INODE_TYPE_DIR)
         dirtree_dump_with_prefix(*static_cast<dirtree_dir *>(&*entry.inode), prefix + "/" + entry.name);
