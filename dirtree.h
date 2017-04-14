@@ -23,6 +23,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -52,6 +53,13 @@ struct dirtree
     xattr = 0xffffffffu;
   }
 
+  virtual void dump_tree(std::string const & path) const
+  {
+    std::cout << path << std::endl;
+  }
+
+  void dump_tree() const { dump_tree("."); }
+
   virtual int write_inode(uint32_t) = 0;
   int write_tables();
 
@@ -63,6 +71,11 @@ struct dirtree_ipc : public dirtree
   dirtree_ipc(sqsh_writer * wr, uint16_t type) : dirtree(wr)
   {
     inode_type = type;
+  }
+
+  void dump_tree(std::string const & path) const
+  {
+    std::cout << path << (inode_type == SQFS_INODE_TYPE_PIPE ? "|" : "=") << std::endl;
   }
 
   virtual int write_inode(uint32_t);
@@ -109,6 +122,11 @@ struct dirtree_sym : public dirtree
     inode_type = SQFS_INODE_TYPE_SYM;
   }
 
+  void dump_tree(std::string const & path) const
+  {
+    std::cout << path << "@ -> " << target << std::endl;
+  }
+
   virtual int write_inode(uint32_t);
 };
 
@@ -119,6 +137,11 @@ struct dirtree_dev : public dirtree
   dirtree_dev(sqsh_writer * wr, uint16_t type, uint32_t rdev) : dirtree(wr), rdev(rdev)
   {
     inode_type = type;
+  }
+
+  void dump_tree(std::string const & path) const
+  {
+    std::cout << path << (inode_type == SQFS_INODE_TYPE_BLK ? "[]" : "''") << std::endl;
   }
 
   virtual int write_inode(uint32_t);
@@ -137,7 +160,13 @@ struct dirtree_dir : public dirtree
     mode = 0755;
   }
 
-  void dump_tree() const;
+  void dump_tree(std::string const & path) const
+  {
+    std::cout << path << std::endl;
+    for (auto & entry : entries)
+      entry.inode->dump_tree(path + (entry.inode->inode_type == SQFS_INODE_TYPE_DIR ? "/" : "\t") + entry.name);
+  }
+
   virtual int write_inode(uint32_t);
   dirtree_dir * subdir_for_path(std::string const &);
   dirtree_reg * put_reg(std::string const &);
