@@ -16,10 +16,8 @@ You should have received a copy of the GNU General Public License
 along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <errno.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdlib.h>
+#include <cstddef>
+#include <cstdint>
 
 #include <zlib.h>
 
@@ -27,14 +25,15 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "mdw.h"
 #include "sqsh_defs.h"
 
-static inline size_t rup(size_t const a, size_t const s)
+template <typename T>
+static inline auto rup(T const a, T const s)
 {
-  size_t const mask = ~(SIZE_MAX << s);
-  size_t const factor = (a >> s) + ((a & mask) != 0);
-  return ((size_t) 1 << s) * factor;
+  auto mask = ~(SIZE_MAX << s);
+  auto factor = (a >> s) + ((a & mask) != 0);
+  return (std::size_t(1) << s) * factor;
 }
 
-void mdw::write_block_compressed(size_t const block_len, unsigned char const * const block, uint16_t const bsize)
+void mdw::write_block_compressed(std::size_t const block_len, unsigned char const * const block, uint16_t const bsize)
 {
   uint8_t tmp[2];
   le16(tmp, bsize);
@@ -55,8 +54,8 @@ void mdw::write_block_no_pad(void)
   compress2(zbuff, &zsize, buff.data(), buff.size(), 9);
 
   bool const compressed = zsize < buff.size();
-  unsigned char * const buf = compressed ? zbuff : buff.data();
-  size_t const size = compressed ? zsize : buff.size();
+  auto buf = compressed ? zbuff : buff.data();
+  auto const size = compressed ? zsize : buff.size();
 
   write_block_compressed(size, buf, compressed ? size : (size | SQFS_META_BLOCK_COMPRESSED_BIT));
   buff.clear();
@@ -69,14 +68,14 @@ void mdw::write_block(void)
   write_block_no_pad();
 }
 
-uint64_t mdw::put(unsigned char const * b, size_t len)
+uint64_t mdw::put(unsigned char const * b, std::size_t len)
 {
   uint64_t const addr = meta_address(table.size(), buff.size());
 
   while (len != 0)
     {
-      size_t const remaining = SQFS_META_BLOCK_SIZE - buff.size();
-      size_t const added = len > remaining ? remaining : len;
+      auto const remaining = SQFS_META_BLOCK_SIZE - buff.size();
+      auto const added = len > remaining ? remaining : len;
 
       for (std::size_t i = 0; i < added; ++i)
         buff.push_back(b[i]);

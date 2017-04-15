@@ -19,13 +19,9 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef LSL_SQSH_WRITER_H
 #define LSL_SQSH_WRITER_H
 
-#include <stdint.h>
-#include <stdio.h>
-
+#include <cstdint>
 #include <unordered_map>
 #include <vector>
-
-#include <search.h>
 
 #include "mdw.h"
 
@@ -83,6 +79,11 @@ struct sqsh_writer
   uint32_t next_inode_number()
   {
     return next_inode++;
+  }
+
+  void append_fragment(uint32_t const size, uint64_t const start_block)
+  {
+    fragments.push_back({start_block, size});
   }
 
   int write_header();

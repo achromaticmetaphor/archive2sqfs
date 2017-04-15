@@ -19,7 +19,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef LSL_SQSH_DEFS_H
 #define LSL_SQSH_DEFS_H
 
-#include <stdint.h>
+#include <cstdint>
 
 #define SQFS_INODE_TYPE_DIR 8
 #define SQFS_INODE_TYPE_REG 9

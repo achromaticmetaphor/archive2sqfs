@@ -18,12 +18,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #define _POSIX_C_SOURCE 200809L
 
-#include <inttypes.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
+#include <cstring>
 #include <memory>
 
 #include <sys/stat.h>
@@ -47,7 +42,7 @@ static char const * strip_path(size_t const strip, char const * pathname)
 {
   for (size_t i = 0; i < strip; i++)
     {
-      char const * const sep = strchr(pathname, '/');
+      char const * const sep = std::strchr(pathname, '/');
       if (sep == nullptr)
         break;
       pathname = sep + 1;
@@ -66,7 +61,7 @@ int main(int argc, char * argv[])
   size_t strip = 0;
 
   if (argc > 3)
-    if (!strcmp("--strip", argv[1]))
+    if (!std::strcmp("--strip", argv[1]))
       strip = strtoll(argv[2], nullptr, 10);
     else
       return usage(argv[0]);

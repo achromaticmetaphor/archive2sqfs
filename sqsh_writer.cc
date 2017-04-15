@@ -18,11 +18,8 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #define _POSIX_C_SOURCE 200809L
 
-#include <errno.h>
-#include <stdint.h>
-#include <stdio.h>
-
-#include <search.h>
+#include <cstdint>
+#include <cstdio>
 
 #include "dw.h"
 #include "le.h"
@@ -30,22 +27,17 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "sqsh_writer.h"
 #include "util.h"
 
-static int fround_to(FILE * const f, long int const block)
+static int fround_to(std::FILE * const f, long int const block)
 {
   long int const tell = ftell(f);
   if (tell == -1)
     return 1;
 
-  size_t const fill = block - (tell % block);
+  std::size_t const fill = block - (tell % block);
   unsigned char buff[fill];
-  for (auto i = 0; i < fill; ++i)
+  for (std::size_t i = 0; i < fill; ++i)
     buff[i] = 0;
-  return fwrite(buff, 1, fill, f) != fill;
-}
-
-static void sqsh_writer_append_fragment(struct sqsh_writer * const wr, uint32_t const size, uint64_t const start_block)
-{
-  wr->fragments.push_back({start_block, size});
+  return std::fwrite(buff, 1, fill, f) != fill;
 }
 
 int sqsh_writer::flush_fragment()
@@ -62,7 +54,7 @@ int sqsh_writer::flush_fragment()
     return 1;
 
   current_fragment.clear();
-  sqsh_writer_append_fragment(this, bsize, tell);
+  append_fragment(bsize, tell);
   return 0;
 }
 

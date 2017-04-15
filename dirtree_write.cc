@@ -18,10 +18,8 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #define _POSIX_C_SOURCE 200809L
 
-#include <inttypes.h>
-#include <stddef.h>
-
 #include <algorithm>
+#include <cstddef>
 #include <memory>
 
 #include "dirtree.h"

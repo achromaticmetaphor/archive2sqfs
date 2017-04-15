@@ -18,9 +18,8 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #define _POSIX_C_SOURCE 200809L
 
-#include <errno.h>
-#include <inttypes.h>
-#include <stddef.h>
+#include <cstddef>
+#include <cstdint>
 
 #include "dirtree.h"
 #include "dw.h"
@@ -28,7 +27,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "sqsh_writer.h"
 #include "util.h"
 
-void dirtree_reg::add_block(size_t size, long int const sb)
+void dirtree_reg::add_block(std::size_t size, long int const sb)
 {
   if (blocks.size() == 0)
     start_block = sb;
@@ -40,7 +39,7 @@ int dirtree_reg::flush()
   if (wr->current_block.size() == 0)
     return 0;
 
-  size_t const block_size = (size_t) 1 << wr->super.block_log;
+  auto const block_size = std::size_t(1) << wr->super.block_log;
   if (wr->current_block.size() < block_size && blocks.size() == 0)
     {
       offset = wr->put_fragment();
@@ -62,14 +61,14 @@ int dirtree_reg::flush()
   return 0;
 }
 
-int dirtree_reg::append(unsigned char const * buff, size_t len)
+int dirtree_reg::append(unsigned char const * buff, std::size_t len)
 {
   file_size += len;
-  size_t const block_size = (size_t) 1 << wr->super.block_log;
+  auto const block_size = std::size_t(1) << wr->super.block_log;
   while (len != 0)
     {
-      size_t const remaining = block_size - wr->current_block.size();
-      size_t const added = len > remaining ? remaining : len;
+      auto const remaining = block_size - wr->current_block.size();
+      auto const added = len > remaining ? remaining : len;
       for (std::size_t i = 0; i < added; ++i)
         wr->current_block.push_back(buff[i]);
 

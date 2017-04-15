@@ -19,12 +19,10 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef LSL_DW_H
 #define LSL_DW_H
 
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-
+#include <cstdint>
+#include <cstdio>
 #include <vector>
 
-uint32_t dw_write_data(std::vector<unsigned char> const &, FILE *);
+uint32_t dw_write_data(std::vector<unsigned char> const &, std::FILE *);
 
 #endif

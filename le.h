@@ -19,7 +19,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef LSL_LE_H
 #define LSL_LE_H
 
-#include <stdint.h>
+#include <cstdint>
 
 static inline void le16(uint8_t * const out, uint16_t const n)
 {
