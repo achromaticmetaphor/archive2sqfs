@@ -167,12 +167,17 @@ struct dirtree_dir : public dirtree
       entry.inode->dump_tree(path + (entry.inode->inode_type == SQFS_INODE_TYPE_DIR ? "/" : "\t") + entry.name);
   }
 
+  dirtree_dir * get_subdir(std::string const &);
+  void put_child(std::string const &, std::unique_ptr<dirtree>);
   virtual int write_inode(uint32_t);
   dirtree_dir * subdir_for_path(std::string const &);
-  dirtree_reg * put_reg(std::string const &);
-  dirtree_sym * put_sym(std::string const &, std::string const &);
-  dirtree_dev * put_dev(std::string const &, uint16_t, uint32_t);
-  dirtree_ipc * put_ipc(std::string const &, uint16_t);
+  void put_file(std::string const &, std::unique_ptr<dirtree>);
+
+  template <typename T>
+  void put_file(std::string const & path, T * dt)
+  {
+    put_file(path, std::unique_ptr<dirtree>(dt));
+  }
 };
 
 #endif
