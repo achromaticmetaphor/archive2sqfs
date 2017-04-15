@@ -90,19 +90,27 @@ int main(int argc, char * argv[])
   while (!failed && archive_read_next_header(archive, &entry) == ARCHIVE_OK)
     {
       char const * const pathname = strip_path(strip, archive_entry_pathname(entry));
-      dirtree * dt = nullptr;
-      mode_t const filetype = archive_entry_filetype(entry);
+      auto const filetype = archive_entry_filetype(entry);
+      auto const mode = archive_entry_perm(entry);
+      auto const uid = archive_entry_uid(entry);
+      auto const gid = archive_entry_gid(entry);
+      auto const mtime = archive_entry_mtime(entry);
       switch (filetype)
         {
           case AE_IFDIR:
-            dt = rootdir.subdir_for_path(pathname);
+            {
+              auto dir = rootdir.subdir_for_path(pathname);
+              dir->mode = mode;
+              dir->uid = uid;
+              dir->gid = gid;
+              dir->mtime = mtime;
+            }
             break;
 
           case AE_IFREG:
             {
-              auto reg = new dirtree_reg(&writer);
+              auto reg = new dirtree_reg(&writer, mode, uid, gid, mtime);
               rootdir.put_file(pathname, reg);
-              dt = reg;
 
               int64_t i;
               for (i = archive_entry_size(entry); i >= block_size && !failed; i -= block_size)
@@ -121,40 +129,27 @@ int main(int argc, char * argv[])
             break;
 
           case AE_IFLNK:
-            dt = new dirtree_sym(&writer, archive_entry_symlink(entry));
-            rootdir.put_file(pathname, dt);
+            rootdir.put_file(pathname, new dirtree_sym(&writer, archive_entry_symlink(entry), mode, uid, gid, mtime));
             break;
 
           case AE_IFBLK:
-            dt = new dirtree_dev(&writer, SQFS_INODE_TYPE_BLK, archive_entry_rdev(entry));
-            rootdir.put_file(pathname, dt);
+            rootdir.put_file(pathname, new dirtree_dev(&writer, SQFS_INODE_TYPE_BLK, archive_entry_rdev(entry), mode, uid, gid, mtime));
             break;
 
           case AE_IFCHR:
-            dt = new dirtree_dev(&writer, SQFS_INODE_TYPE_CHR, archive_entry_rdev(entry));
-            rootdir.put_file(pathname, dt);
+            rootdir.put_file(pathname, new dirtree_dev(&writer, SQFS_INODE_TYPE_CHR, archive_entry_rdev(entry), mode, uid, gid, mtime));
             break;
 
           case AE_IFSOCK:
-            dt = new dirtree_ipc(&writer, SQFS_INODE_TYPE_SOCK);
-            rootdir.put_file(pathname, dt);
+            rootdir.put_file(pathname, new dirtree_ipc(&writer, SQFS_INODE_TYPE_SOCK, mode, uid, gid, mtime));
             break;
 
           case AE_IFIFO:
-            dt = new dirtree_ipc(&writer, SQFS_INODE_TYPE_PIPE);
-            rootdir.put_file(pathname, dt);
+            rootdir.put_file(pathname, new dirtree_ipc(&writer, SQFS_INODE_TYPE_PIPE, mode, uid, gid, mtime));
             break;
 
-          default:;
-        }
-
-      failed = failed || dt == nullptr;
-      if (dt != nullptr)
-        {
-          dt->mode = archive_entry_perm(entry);
-          dt->uid = archive_entry_uid(entry);
-          dt->gid = archive_entry_gid(entry);
-          dt->mtime = archive_entry_mtime(entry);
+          default:
+            failed = true;
         }
     }
 

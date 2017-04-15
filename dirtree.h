@@ -39,12 +39,8 @@ struct dirtree
   uint32_t xattr;
   sqsh_writer * wr;
 
-  dirtree(sqsh_writer * wr) : wr(wr)
+  dirtree(sqsh_writer * wr, uint16_t inode_type, uint16_t mode = 0644, uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0) : inode_type(inode_type), mode(mode), uid(uid), gid(gid), mtime(mtime), wr(wr)
   {
-    mode = 0644;
-    uid = 0;
-    gid = 0;
-    mtime = 0;
     inode_number = wr->next_inode_number();
     nlink = 1;
     xattr = 0xffffffffu;
@@ -65,10 +61,7 @@ struct dirtree
 
 struct dirtree_ipc : public dirtree
 {
-  dirtree_ipc(sqsh_writer * wr, uint16_t type) : dirtree(wr)
-  {
-    inode_type = type;
-  }
+  dirtree_ipc(sqsh_writer * wr, uint16_t type, uint16_t mode = 0644, uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0) : dirtree(wr, type, mode, uid, gid, mtime) {}
 
   void dump_tree(std::string const & path) const
   {
@@ -94,9 +87,8 @@ struct dirtree_reg : public dirtree
 
   std::vector<uint32_t> blocks;
 
-  dirtree_reg(sqsh_writer * wr) : dirtree(wr)
+  dirtree_reg(sqsh_writer * wr, uint16_t mode = 0644, uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0) : dirtree(wr, SQFS_INODE_TYPE_REG, mode, uid, gid, mtime)
   {
-    inode_type = SQFS_INODE_TYPE_REG;
     start_block = 0;
     file_size = 0;
     sparse = 0;
@@ -114,10 +106,7 @@ struct dirtree_sym : public dirtree
 {
   std::string target;
 
-  dirtree_sym(sqsh_writer * wr, std::string const & target) : dirtree(wr), target(target)
-  {
-    inode_type = SQFS_INODE_TYPE_SYM;
-  }
+  dirtree_sym(sqsh_writer * wr, std::string const & target, uint16_t mode = 0644, uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0) : dirtree(wr, SQFS_INODE_TYPE_SYM, mode, uid, gid, mtime), target(target) {}
 
   void dump_tree(std::string const & path) const
   {
@@ -131,10 +120,7 @@ struct dirtree_dev : public dirtree
 {
   uint32_t rdev;
 
-  dirtree_dev(sqsh_writer * wr, uint16_t type, uint32_t rdev) : dirtree(wr), rdev(rdev)
-  {
-    inode_type = type;
-  }
+  dirtree_dev(sqsh_writer * wr, uint16_t type, uint32_t rdev, uint16_t mode = 0644, uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0) : dirtree(wr, type, mode, uid, gid, mtime), rdev(rdev) {}
 
   void dump_tree(std::string const & path) const
   {
@@ -151,11 +137,7 @@ struct dirtree_dir : public dirtree
   uint32_t dtable_start_block;
   uint16_t dtable_start_offset;
 
-  dirtree_dir(sqsh_writer * wr) : dirtree(wr)
-  {
-    inode_type = SQFS_INODE_TYPE_DIR;
-    mode = 0755;
-  }
+  dirtree_dir(sqsh_writer * wr, uint16_t mode = 0755, uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0) : dirtree(wr, SQFS_INODE_TYPE_DIR, mode, uid, gid, mtime) {}
 
   void dump_tree(std::string const & path) const
   {
