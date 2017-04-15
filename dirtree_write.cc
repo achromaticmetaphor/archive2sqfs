@@ -202,8 +202,7 @@ int dirtree_dir::write_inode(uint32_t const parent_inode_number)
   dirtree_inode_common(this, buff);
   size_t const inode_len = dirtree_write_inode_dir(buff, this, parent_inode_number);
   inode_address = wr->inode_writer.put(buff, inode_len);
-  RETIF(meta_address_error(inode_address));
-  return 0;
+  return meta_address_error(inode_address);
 }
 
 int dirtree_sym::write_inode(uint32_t parent_inode_number)
@@ -225,7 +224,7 @@ int dirtree_sym::write_inode(uint32_t parent_inode_number)
     le16(buff, inode_type - 7);
 
   inode_address = wr->inode_writer.put(buff, inode_len);
-  RETIF(meta_address_error(inode_address));
+  return meta_address_error(inode_address);
 }
 
 int dirtree_dev::write_inode(uint32_t parent_inode_number)
@@ -243,7 +242,7 @@ int dirtree_dev::write_inode(uint32_t parent_inode_number)
     le16(buff, inode_type - 7);
 
   inode_address = wr->inode_writer.put(buff, inode_len);
-  RETIF(meta_address_error(inode_address));
+  return meta_address_error(inode_address);
 }
 
 int dirtree_ipc::write_inode(uint32_t parent_inode_number)
@@ -260,7 +259,7 @@ int dirtree_ipc::write_inode(uint32_t parent_inode_number)
     le16(buff, inode_type - 7);
 
   inode_address = wr->inode_writer.put(buff, inode_len);
-  RETIF(meta_address_error(inode_address));
+  return meta_address_error(inode_address);
 }
 
 int dirtree::write_tables()
@@ -270,6 +269,5 @@ int dirtree::write_tables()
   wr->super.root_inode = inode_address;
   wr->inode_writer.write_block();
   wr->dentry_writer.write_block();
-  RETIF(wr->write_tables());
-  return 0;
+  return wr->write_tables();
 }
