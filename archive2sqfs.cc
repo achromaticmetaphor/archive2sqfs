@@ -75,13 +75,11 @@ int main(int argc, char * argv[])
   struct sqsh_writer writer(outfilepath);
   dirtree_dir rootdir(&writer);
 
-  FILE * const infile = infilepath == nullptr ? stdin : fopen(infilepath, "rb");
-  struct archive * const archive = infile == nullptr ? nullptr : archive_read_new();
-
+  struct archive * const archive = archive_read_new();
   bool failed = archive == nullptr;
   failed = failed || archive_read_support_filter_all(archive) != ARCHIVE_OK;
   failed = failed || archive_read_support_format_all(archive) != ARCHIVE_OK;
-  failed = failed || archive_read_open_FILE(archive, infile) != ARCHIVE_OK;
+  failed = failed || (infilepath == nullptr ? archive_read_open_FILE(archive, stdin) : archive_read_open_filename(archive, infilepath, 10240)) != ARCHIVE_OK;
 
   size_t const block_size = (size_t) 1 << writer.super.block_log;
   unsigned char buff[block_size];
@@ -158,9 +156,6 @@ int main(int argc, char * argv[])
 
   if (archive != nullptr)
     archive_read_free(archive);
-
-  if (infile != nullptr)
-    fclose(infile);
 
   return failed;
 }
