@@ -19,16 +19,16 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef LSL_UTIL_H
 #define LSL_UTIL_H
 
-#define RETIF_C(C, CL)       \
-  do                         \
-    {                        \
-      int const error = (C); \
-      if (error)             \
-        {                    \
-          CL;                \
-          return error;      \
-        }                    \
-    }                        \
+#define RETIF_C(C, CL)                                       \
+  do                                                         \
+    {                                                        \
+      int const u9b10355c_6297_46d2_acc0_79541114c286 = (C); \
+      if (u9b10355c_6297_46d2_acc0_79541114c286)             \
+        {                                                    \
+          CL;                                                \
+          return u9b10355c_6297_46d2_acc0_79541114c286;      \
+        }                                                    \
+    }                                                        \
   while (0)
 
 #define RETIF(C) RETIF_C((C), )
