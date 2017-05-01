@@ -19,7 +19,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #define _POSIX_C_SOURCE 200809L
 
 #include <cstdint>
-#include <cstdio>
+#include <ostream>
 
 #include "dw.h"
 #include "le.h"
@@ -27,17 +27,16 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "sqsh_writer.h"
 #include "util.h"
 
-static int fround_to(std::FILE * const f, long int const block)
+static int fround_to(std::ostream & f, long int const block)
 {
-  long int const tell = ftell(f);
+  auto const tell = f.tellp();
   if (tell == -1)
     return 1;
 
   std::size_t const fill = block - (tell % block);
-  unsigned char buff[fill];
   for (std::size_t i = 0; i < fill; ++i)
-    buff[i] = 0;
-  return std::fwrite(buff, 1, fill, f) != fill;
+    f << '\0';
+  return f.fail();
 }
 
 int sqsh_writer::flush_fragment()
@@ -45,7 +44,7 @@ int sqsh_writer::flush_fragment()
   if (current_fragment.size() == 0)
     return 0;
 
-  long int const tell = ftell(outfile);
+  auto const tell = outfile.tellp();
   if (tell == -1)
     return 1;
 
@@ -98,7 +97,11 @@ int sqsh_writer::write_header()
   le64(header + 80, super.fragment_table_start);
   le64(header + 88, super.lookup_table_start);
 
-  return fround_to(outfile, SQFS_PAD_SIZE) || fseek(outfile, 0L, SEEK_SET) || fwrite(header, 1, sizeof(header), outfile) != sizeof(header);
+  RETIF(fround_to(outfile, SQFS_PAD_SIZE));
+  outfile.seekp(0);
+  for (std::size_t i = 0; i < 96; ++i)
+    outfile << header[i];
+  return outfile.fail();
 }
 
 template <typename T>
@@ -144,11 +147,14 @@ static int sqsh_writer_write_indexed_table(sqsh_writer * wr, std::size_t const c
 
   error = error || mdw.out(wr->outfile);
 
-  long int const tell = error ? -1 : ftell(wr->outfile);
+  auto const tell = wr->outfile.tellp();
   error = error || tell == -1;
   table_start = tell;
 
-  return error || fwrite(indices, 1, index_count * 8, wr->outfile) != index_count * 8;
+  RETIF(error);
+  for (std::size_t i = 0; i < index_count * 8; ++i)
+    wr->outfile << indices[i];
+  return wr->outfile.fail();
 }
 
 static inline void sqsh_writer_fragment_table_entry(unsigned char buff[16], struct sqsh_writer * const wr, size_t const i)
@@ -181,7 +187,7 @@ static int sqsh_writer_write_directory_table(struct sqsh_writer * const wr)
 
 static inline void tell_wr(struct sqsh_writer * const wr, int & error, uint64_t & start, int (*cb)(struct sqsh_writer *))
 {
-  long int const tell = ftell(wr->outfile);
+  auto const tell = wr->outfile.tellp();
   error = error || tell == -1;
   start = tell;
   error = error || cb(wr);
@@ -198,7 +204,7 @@ int sqsh_writer::write_tables()
   TELL_WR(id);
 #undef TELL_WR
 
-  long int const tell = ftell(outfile);
+  long int const tell = outfile.tellp();
   error = error || tell == -1;
   super.bytes_used = tell;
 

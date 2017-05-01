@@ -20,6 +20,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #define LSL_SQSH_WRITER_H
 
 #include <cstdint>
+#include <fstream>
 #include <unordered_map>
 #include <vector>
 
@@ -55,7 +56,7 @@ struct sqsh_writer
   struct sqfs_super super;
   struct mdw dentry_writer;
   struct mdw inode_writer;
-  FILE * outfile;
+  std::ofstream outfile;
   std::vector<unsigned char> current_block;
   std::vector<unsigned char> current_fragment;
   std::vector<fragment_entry> fragments;
@@ -91,18 +92,10 @@ struct sqsh_writer
   int flush_fragment();
   int write_tables();
 
-  sqsh_writer(char const * path, int blog = SQFS_BLOCK_LOG_DEFAULT)
+  sqsh_writer(char const * path, int blog = SQFS_BLOCK_LOG_DEFAULT) : outfile(path, std::ios_base::binary)
   {
     super.block_log = blog;
-    outfile = fopen(path, "wb");
-    if (outfile != nullptr)
-      fseek(outfile, 96L, SEEK_SET);
-  }
-
-  ~sqsh_writer()
-  {
-    if (outfile != nullptr)
-      fclose(outfile);
+    outfile.seekp(96);
   }
 };
 

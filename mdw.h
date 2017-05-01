@@ -19,7 +19,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef LSL_MDW_H
 #define LSL_MDW_H
 
-#include <cstdio>
+#include <ostream>
 #include <vector>
 
 #include "sqsh_defs.h"
@@ -29,9 +29,11 @@ struct mdw
   std::vector<unsigned char> table;
   std::vector<unsigned char> buff;
 
-  bool out(std::FILE * const out)
+  bool out(std::ostream & out)
   {
-    return std::fwrite(table.data(), 1, table.size(), out) != table.size();
+    for (auto c : table)
+      out << c;
+    return out.fail();
   }
 
   void write_block_compressed(std::size_t, unsigned char const *, uint16_t);

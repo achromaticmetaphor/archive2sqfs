@@ -16,14 +16,15 @@ You should have received a copy of the GNU General Public License
 along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cstdio>
+#include <ostream>
 #include <vector>
 
 #include <zlib.h>
 
+#include "dw.h"
 #include "sqsh_defs.h"
 
-uint32_t dw_write_data(std::vector<unsigned char> const & buff, std::FILE * const out)
+uint32_t dw_write_data(std::vector<unsigned char> const & buff, std::ostream & out)
 {
   if (buff.size() == 0)
     return SQFS_BLOCK_COMPRESSED_BIT;
@@ -37,7 +38,9 @@ uint32_t dw_write_data(std::vector<unsigned char> const & buff, std::FILE * cons
   auto const block = compressed ? zbuff : buff.data();
   auto const size = compressed ? zsize : buff.size();
 
-  if (std::fwrite(block, 1, size, out) != size)
+  for (auto i = 0; i < size; ++i)
+    out << block[i];
+  if (out.fail())
     return 0xffffffff;
 
   return compressed ? size : (size | SQFS_BLOCK_COMPRESSED_BIT);

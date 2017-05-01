@@ -48,7 +48,7 @@ int dirtree_reg::flush()
     }
   else
     {
-      long int const tell = ftell(wr->outfile);
+      auto const tell = wr->outfile.tellp();
       RETIF(tell == -1);
 
       uint32_t const bsize = dw_write_data(wr->current_block, wr->outfile);
