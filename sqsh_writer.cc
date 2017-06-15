@@ -134,11 +134,11 @@ static int sqsh_writer_write_indexed_table(sqsh_writer * wr, std::size_t const c
     {
       unsigned char buff[ITD_ENTRY_SIZE(ENTRY_LB)];
       entry(buff, wr, i);
-      uint64_t const maddr = mdw.put(buff, ITD_ENTRY_SIZE(ENTRY_LB));
-      RETIF(meta_address_error(maddr));
+      meta_address const maddr = mdw.put(buff, ITD_ENTRY_SIZE(ENTRY_LB));
+      RETIF(maddr.error);
 
       if ((i & ITD_MASK(ENTRY_LB)) == 0)
-        le64(indices + index++ * 8, table_start + meta_address_block(maddr));
+        le64(indices + index++ * 8, table_start + maddr.block);
     }
 
   int error = 0;

@@ -36,10 +36,15 @@ struct mdw
     return out.fail();
   }
 
+  meta_address get_address()
+  {
+    return meta_address(table.size(), buff.size());
+  }
+
   void write_block_compressed(std::size_t, unsigned char const *, uint16_t);
   void write_block_no_pad(void);
   void write_block(void);
-  uint64_t put(unsigned char const *, size_t);
+  meta_address put(unsigned char const *, size_t);
 };
 
 #endif

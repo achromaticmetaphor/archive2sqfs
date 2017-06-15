@@ -40,7 +40,7 @@ struct sqfs_super
   uint16_t block_log = SQFS_BLOCK_LOG_DEFAULT;
   uint16_t flags = 0;
 
-  uint64_t root_inode = 0;
+  meta_address root_inode;
   uint64_t bytes_used = 0;
   uint64_t id_table_start = 0;
   uint64_t xattr_table_start = 0xffffffffffffffffu;

@@ -24,6 +24,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <memory>
 #include <vector>
 
+#include "sqsh_defs.h"
 #include "sqsh_writer.h"
 
 struct dirtree
@@ -34,7 +35,7 @@ struct dirtree
   uint32_t gid;
   uint32_t mtime;
   uint32_t inode_number;
-  uint64_t inode_address;
+  meta_address inode_address;
   uint32_t nlink;
   uint32_t xattr;
   sqsh_writer * wr;

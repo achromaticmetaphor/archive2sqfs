@@ -68,9 +68,9 @@ void mdw::write_block(void)
   write_block_no_pad();
 }
 
-uint64_t mdw::put(unsigned char const * b, std::size_t len)
+meta_address mdw::put(unsigned char const * b, std::size_t len)
 {
-  uint64_t const addr = meta_address(table.size(), buff.size());
+  meta_address const addr = get_address();
 
   while (len != 0)
     {

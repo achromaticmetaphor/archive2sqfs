@@ -40,29 +40,20 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #define SQFS_META_BLOCK_COMPRESSED_BIT 0x8000u
 #define SQFS_BLOCK_COMPRESSED_BIT UINT32_C(0x1000000)
 
-static inline uint16_t meta_address_offset(uint64_t const maddr)
+struct meta_address
 {
-  return maddr & 0xffffu;
-}
+  uint32_t block;
+  uint16_t offset;
+  uint16_t error;
 
-static inline uint32_t meta_address_block(uint64_t const maddr)
-{
-  return (maddr >> 16) & 0xffffffffu;
-}
+  meta_address() : block(0), offset(0), error(0) {}
+  meta_address(uint16_t e) : block(0), offset(0), error(e) {}
+  meta_address(uint32_t b, uint16_t o) : block(b), offset(o), error(0) {}
 
-static inline uint64_t meta_address(uint32_t const block, uint16_t const offset)
-{
-  return (((uint64_t) block) << 16) | offset;
-}
-
-static inline uint64_t meta_address_from_error(uint16_t const error)
-{
-  return (uint64_t) error << 48;
-}
-
-static inline uint16_t meta_address_error(uint64_t const maddr)
-{
-  return maddr >> 48;
-}
+  operator uint64_t() const
+  {
+    return (uint64_t(block) << 16) | offset;
+  }
+};
 
 #endif
