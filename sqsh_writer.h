@@ -25,8 +25,10 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 
 #include "mdw.h"
+#include "sqsh_defs.h"
 
 #define SQFS_BLOCK_LOG_DEFAULT 17
+#define SQFS_COMPRESSION_TYPE_DEFAULT SQFS_COMPRESSION_TYPE_ZLIB
 
 struct fragment_entry
 {
@@ -36,18 +38,18 @@ struct fragment_entry
 
 struct sqfs_super
 {
-  uint16_t compression = 1;
+  uint16_t compression = SQFS_COMPRESSION_TYPE_DEFAULT;
   uint16_t block_log = SQFS_BLOCK_LOG_DEFAULT;
   uint16_t flags = 0;
 
   meta_address root_inode;
   uint64_t bytes_used = 0;
   uint64_t id_table_start = 0;
-  uint64_t xattr_table_start = 0xffffffffffffffffu;
+  uint64_t xattr_table_start = SQFS_TABLE_NOT_PRESENT;
   uint64_t inode_table_start = 0;
   uint64_t directory_table_start = 0;
   uint64_t fragment_table_start = 0;
-  uint64_t lookup_table_start = 0xffffffffffffffffu;
+  uint64_t lookup_table_start = SQFS_TABLE_NOT_PRESENT;
 };
 
 struct sqsh_writer
@@ -95,7 +97,7 @@ struct sqsh_writer
   sqsh_writer(char const * path, int blog = SQFS_BLOCK_LOG_DEFAULT) : outfile(path, std::ios_base::binary)
   {
     super.block_log = blog;
-    outfile.seekp(96);
+    outfile.seekp(SQFS_SUPER_SIZE);
   }
 };
 

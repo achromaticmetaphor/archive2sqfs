@@ -32,7 +32,7 @@ uint32_t dw_write_data(std::vector<unsigned char> const & buff, std::ostream & o
   auto zsize = compressBound(buff.size());
   unsigned char zbuff[zsize];
   if (compress2(zbuff, &zsize, buff.data(), buff.size(), 9) != Z_OK)
-    return 0xffffffff;
+    return SQFS_BLOCK_INVALID;
 
   bool const compressed = zsize < buff.size();
   auto const block = compressed ? zbuff : buff.data();
@@ -41,7 +41,7 @@ uint32_t dw_write_data(std::vector<unsigned char> const & buff, std::ostream & o
   for (auto i = 0; i < size; ++i)
     out << block[i];
   if (out.fail())
-    return 0xffffffff;
+    return SQFS_BLOCK_INVALID;
 
   return compressed ? size : (size | SQFS_BLOCK_COMPRESSED_BIT);
 }

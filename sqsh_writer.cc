@@ -73,7 +73,7 @@ size_t sqsh_writer::put_fragment()
 
 int sqsh_writer::write_header()
 {
-  uint8_t header[96];
+  uint8_t header[SQFS_SUPER_SIZE];
 
   le32(header, SQFS_MAGIC);
   le32(header + 4, next_inode - 1);
@@ -99,7 +99,7 @@ int sqsh_writer::write_header()
 
   RETIF(fround_to(outfile, SQFS_PAD_SIZE));
   outfile.seekp(0);
-  for (std::size_t i = 0; i < 96; ++i)
+  for (std::size_t i = 0; i < SQFS_SUPER_SIZE; ++i)
     outfile << header[i];
   return outfile.fail();
 }

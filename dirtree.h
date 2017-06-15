@@ -44,7 +44,7 @@ struct dirtree
   {
     inode_number = wr->next_inode_number();
     nlink = 1;
-    xattr = 0xffffffffu;
+    xattr = SQFS_XATTR_NONE;
   }
 
   virtual void dump_tree(std::string const & path) const
@@ -93,7 +93,7 @@ struct dirtree_reg : public dirtree
     start_block = 0;
     file_size = 0;
     sparse = 0;
-    fragment = 0xffffffffu;
+    fragment = SQFS_FRAGMENT_NONE;
     offset = 0;
   }
 

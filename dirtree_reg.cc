@@ -52,7 +52,7 @@ int dirtree_reg::flush()
       RETIF(tell == -1);
 
       uint32_t const bsize = dw_write_data(wr->current_block, wr->outfile);
-      RETIF(bsize == 0xffffffff);
+      RETIF(bsize == SQFS_BLOCK_INVALID);
 
       add_block(bsize, tell);
     }

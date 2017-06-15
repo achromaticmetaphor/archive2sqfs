@@ -34,11 +34,19 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #define SQFS_MINOR 0
 
 #define SQFS_PAD_SIZE 0x1000
+#define SQFS_SUPER_SIZE 96
 
 #define SQFS_META_BLOCK_SIZE_LB 13
 #define SQFS_META_BLOCK_SIZE (1 << SQFS_META_BLOCK_SIZE_LB)
 #define SQFS_META_BLOCK_COMPRESSED_BIT 0x8000u
 #define SQFS_BLOCK_COMPRESSED_BIT UINT32_C(0x1000000)
+#define SQFS_BLOCK_INVALID 0xffffffff
+
+#define SQFS_XATTR_NONE 0xffffffffu
+#define SQFS_FRAGMENT_NONE 0xffffffffu
+#define SQFS_TABLE_NOT_PRESENT 0xffffffffffffffffu
+
+#define SQFS_COMPRESSION_TYPE_ZLIB 1
 
 struct meta_address
 {

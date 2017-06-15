@@ -18,6 +18,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #define _POSIX_C_SOURCE 200809L
 
+#include <cerrno>
 #include <cstring>
 #include <memory>
 
@@ -36,7 +37,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 static int usage(char const * const progname)
 {
   fprintf(stderr, "usage: %s [--strip N] outfile [infile]\n", progname);
-  return 3;
+  return EINVAL;
 }
 
 static char const * strip_path(size_t const strip, char const * pathname)
@@ -70,7 +71,7 @@ int main(int argc, char * argv[])
   if (!access(outfilepath, F_OK))
     {
       fprintf(stderr, "ERROR: output file exists: %s\n", outfilepath);
-      return 3;
+      return EINVAL;
     }
 
   struct sqsh_writer writer(outfilepath);

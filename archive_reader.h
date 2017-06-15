@@ -19,6 +19,8 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <archive.h>
 #include <archive_entry.h>
 
+#define READER_BLOCKSIZE 10240
+
 struct archive_reader
 {
   struct archive * reader;
@@ -33,7 +35,7 @@ struct archive_reader
 
   archive_reader(char const * const pathname) : archive_reader()
   {
-    if (archive_read_open_filename(reader, pathname, 10240) != ARCHIVE_OK)
+    if (archive_read_open_filename(reader, pathname, READER_BLOCKSIZE) != ARCHIVE_OK)
       throw "failed to open archive";
   }
 
