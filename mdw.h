@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2016  Charles Cagle
+Copyright (C) 2016, 2017  Charles Cagle
 
 This file is part of archive2sqfs.
 
