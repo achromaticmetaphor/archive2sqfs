@@ -16,32 +16,34 @@ You should have received a copy of the GNU General Public License
 along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <ostream>
+#include <utility>
 #include <vector>
 
 #include <zlib.h>
 
-#include "dw.h"
+#include "compressor.h"
 #include "sqsh_defs.h"
 
-uint32_t dw_write_data(std::vector<unsigned char> const & buff, std::ostream & out)
+static uint32_t compress_data_zlib(std::vector<unsigned char> & out, std::vector<unsigned char> const && in)
 {
-  if (buff.size() == 0)
+  if (in.size() == 0)
     return SQFS_BLOCK_COMPRESSED_BIT;
 
-  auto zsize = compressBound(buff.size());
-  unsigned char zbuff[zsize];
-  if (compress2(zbuff, &zsize, buff.data(), buff.size(), 9) != Z_OK)
+  auto zsize = compressBound(in.size());
+  out.resize(zsize);
+  if (compress2(out.data(), &zsize, in.data(), in.size(), 9) != Z_OK)
     return SQFS_BLOCK_INVALID;
+  out.resize(zsize);
 
-  bool const compressed = zsize < buff.size();
-  auto const block = compressed ? zbuff : buff.data();
-  auto const size = compressed ? zsize : buff.size();
+  bool const compressed = out.size() < in.size();
+  if (!compressed)
+    out = std::move(in);
 
-  for (auto i = 0; i < size; ++i)
-    out << block[i];
-  if (out.fail())
-    return SQFS_BLOCK_INVALID;
+  return compressed ? out.size() : (out.size() | SQFS_BLOCK_COMPRESSED_BIT);
+}
 
-  return compressed ? size : (size | SQFS_BLOCK_COMPRESSED_BIT);
+compression_result compressor_zlib::compress(block_type && out, block_type && in)
+{
+  auto const bsize = compress_data_zlib(*out, std::move(*in));
+  return {bsize, std::move(out)};
 }

@@ -20,64 +20,48 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
+#include "compressor.h"
 #include "dirtree.h"
-#include "dw.h"
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
 #include "util.h"
 
-void dirtree_reg::add_block(std::size_t size, long int const sb)
+void dirtree_reg::flush()
 {
-  if (blocks.size() == 0)
-    start_block = sb;
-  blocks.push_back(size);
-}
-
-int dirtree_reg::flush()
-{
-  if (wr->current_block.size() == 0)
-    return 0;
+  if (wr->current_block->size() == 0)
+    return;
 
   auto const block_size = std::size_t(1) << wr->super.block_log;
-  if (wr->current_block.size() < block_size && blocks.size() == 0)
+  if (wr->current_block->size() < block_size && block_count == 0)
     {
       offset = wr->put_fragment();
-      RETIF(offset == block_size);
-      fragment = wr->fragments.size();
+      fragment = wr->fragment_count;
     }
   else
     {
-      auto const tell = wr->outfile.tellp();
-      RETIF(tell == -1);
-
-      uint32_t const bsize = dw_write_data(wr->current_block, wr->outfile);
-      RETIF(bsize == SQFS_BLOCK_INVALID);
-
-      add_block(bsize, tell);
+      auto const shared_this = shared_from_this();
+      wr->enqueue_block(std::shared_ptr<decltype(blocks)>(shared_this, &blocks), std::shared_ptr<decltype(start_block)>(shared_this, &start_block));
+      ++block_count;
     }
-
-  wr->current_block.clear();
-  return 0;
 }
 
-int dirtree_reg::append(unsigned char const * buff, std::size_t len)
+void dirtree_reg::append(unsigned char const * buff, std::size_t len)
 {
   file_size += len;
   auto const block_size = std::size_t(1) << wr->super.block_log;
   while (len != 0)
     {
-      auto const remaining = block_size - wr->current_block.size();
+      auto const remaining = block_size - wr->current_block->size();
       auto const added = len > remaining ? remaining : len;
       for (std::size_t i = 0; i < added; ++i)
-        wr->current_block.push_back(buff[i]);
+        wr->current_block->push_back(buff[i]);
 
-      if (wr->current_block.size() == block_size)
-        RETIF(flush());
+      if (wr->current_block->size() == block_size)
+        flush();
 
       len -= added;
       buff += added;
     }
-
-  return 0;
 }

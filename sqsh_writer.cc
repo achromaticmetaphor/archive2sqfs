@@ -19,9 +19,12 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #define _POSIX_C_SOURCE 200809L
 
 #include <cstdint>
+#include <memory>
 #include <ostream>
+#include <utility>
+#include <vector>
 
-#include "dw.h"
+#include "compressor.h"
 #include "le.h"
 #include "mdw.h"
 #include "sqsh_writer.h"
@@ -39,35 +42,21 @@ static int fround_to(std::ostream & f, long int const block)
   return f.fail();
 }
 
-int sqsh_writer::flush_fragment()
+void sqsh_writer::flush_fragment()
 {
-  if (current_fragment.size() == 0)
-    return 0;
-
-  auto const tell = outfile.tellp();
-  if (tell == -1)
-    return 1;
-
-  uint32_t const bsize = dw_write_data(current_fragment, outfile);
-  if (bsize == 0xffffffff)
-    return 1;
-
-  current_fragment.clear();
-  append_fragment(bsize, tell);
-  return 0;
+  if (!current_fragment->empty())
+    enqueue_fragment();
 }
 
 size_t sqsh_writer::put_fragment()
 {
   size_t const block_size = (size_t) 1 << super.block_log;
+  if (current_fragment->size() + current_block->size() > block_size)
+    flush_fragment();
 
-  if (current_fragment.size() + current_block.size() > block_size)
-    if (flush_fragment())
-      return block_size;
-
-  size_t const offset = current_fragment.size();
-  for (auto e : current_block)
-    current_fragment.push_back(e);
+  size_t const offset = current_fragment->size();
+  current_fragment->insert(current_fragment->end(), current_block->begin(), current_block->end());
+  current_block->clear();
   return offset;
 }
 
@@ -209,4 +198,25 @@ int sqsh_writer::write_tables()
   super.bytes_used = tell;
 
   return error;
+}
+
+void sqsh_writer::enqueue_fragment()
+{
+  writer_queue.push(std::unique_ptr<pending_write>(new pending_fragment(outfile, comp->compress_async(std::move(current_fragment)), fragments)));
+  ++fragment_count;
+  current_fragment = get_block();
+}
+
+void sqsh_writer::enqueue_block(std::shared_ptr<std::vector<uint32_t>> blocks, std::shared_ptr<uint64_t> start)
+{
+  writer_queue.push(std::unique_ptr<pending_write>(new pending_block(outfile, comp->compress_async(std::move(current_block)), blocks, start)));
+  current_block = get_block();
+}
+
+void sqsh_writer::writer_thread()
+{
+  bool failed = false;
+  for (auto option = writer_queue.pop(); option.has_value; option = writer_queue.pop())
+    failed = failed || option.value->handle_write();
+  writer_failed = failed;
 }

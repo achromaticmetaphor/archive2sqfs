@@ -58,7 +58,7 @@ struct dirtable_header
 static int dirtree_write_dirtable_segment(struct dirtree * const dt, size_t * const offset)
 {
   dirtree_dir & dir = *static_cast<dirtree_dir *>(dt);
-  std::unique_ptr<dirtree> & first = dir.entries[*offset].inode;
+  auto & first = dir.entries[*offset].inode;
   struct dirtable_header header = {0, first->inode_address.block, first->inode_number};
   header.count = header.segment_len(dir, *offset);
 
@@ -264,7 +264,6 @@ int dirtree_ipc::write_inode(uint32_t parent_inode_number)
 
 int dirtree::write_tables()
 {
-  RETIF(wr->flush_fragment());
   RETIF(write_inode(wr->next_inode));
   wr->super.root_inode = inode_address;
   wr->inode_writer.write_block();

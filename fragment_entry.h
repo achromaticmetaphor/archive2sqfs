@@ -16,12 +16,15 @@ You should have received a copy of the GNU General Public License
 along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef LSL_DW_H
-#define LSL_DW_H
+#ifndef LSL_FRAGMENT_ENTRY_H
+#define LSL_FRAGMENT_ENTRY_H
 
-#include <iostream>
-#include <vector>
+#include <cstdint>
 
-uint32_t dw_write_data(std::vector<unsigned char> const &, std::ostream &);
+struct fragment_entry
+{
+  uint64_t start_block;
+  uint32_t size;
+};
 
 #endif

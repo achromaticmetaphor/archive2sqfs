@@ -21,6 +21,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <cerrno>
 #include <cstring>
 #include <memory>
+#include <thread>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -75,12 +76,13 @@ int main(int argc, char * argv[])
     }
 
   struct sqsh_writer writer(outfilepath);
-  dirtree_dir rootdir(&writer);
+  std::shared_ptr<dirtree_dir> rootdir = dirtree_dir::create_root_dir(&writer);
 
   archive_reader archive = infilepath == nullptr ? archive_reader(stdin) : archive_reader(infilepath);
   size_t const block_size = (size_t) 1 << writer.super.block_log;
   unsigned char buff[block_size];
   bool failed = false;
+  std::thread writer_thread(&sqsh_writer::writer_thread, &writer);
 
   while (!failed && archive.next())
     {
@@ -94,7 +96,7 @@ int main(int argc, char * argv[])
         {
           case AE_IFDIR:
             {
-              auto dir = rootdir.subdir_for_path(pathname);
+              auto dir = rootdir->subdir_for_path(pathname);
               dir->mode = mode;
               dir->uid = uid;
               dir->gid = gid;
@@ -104,43 +106,43 @@ int main(int argc, char * argv[])
 
           case AE_IFREG:
             {
-              auto reg = new dirtree_reg(&writer, mode, uid, gid, mtime);
-              rootdir.put_file(pathname, reg);
+              auto reg = std::make_shared<dirtree_reg>(&writer, mode, uid, gid, mtime);
+              rootdir->put_file(pathname, reg);
 
               int64_t i;
               for (i = archive_entry_size(archive.entry); i >= block_size && !failed; i -= block_size)
                 {
                   failed = failed || archive.read(buff, block_size) != block_size;
-                  failed = failed || reg->append(buff, block_size);
+                  reg->append(buff, block_size);
                 }
               if (i > 0 && !failed)
                 {
                   failed = failed || archive.read(buff, i) != i;
-                  failed = failed || reg->append(buff, i);
+                  reg->append(buff, i);
                 }
 
-              failed = failed || reg->flush();
+              reg->flush();
             }
             break;
 
           case AE_IFLNK:
-            rootdir.put_file(pathname, new dirtree_sym(&writer, archive_entry_symlink(archive.entry), mode, uid, gid, mtime));
+            rootdir->put_file(pathname, std::make_shared<dirtree_sym>(&writer, archive_entry_symlink(archive.entry), mode, uid, gid, mtime));
             break;
 
           case AE_IFBLK:
-            rootdir.put_file(pathname, new dirtree_dev(&writer, SQFS_INODE_TYPE_BLK, archive_entry_rdev(archive.entry), mode, uid, gid, mtime));
+            rootdir->put_file(pathname, std::make_shared<dirtree_dev>(&writer, SQFS_INODE_TYPE_BLK, archive_entry_rdev(archive.entry), mode, uid, gid, mtime));
             break;
 
           case AE_IFCHR:
-            rootdir.put_file(pathname, new dirtree_dev(&writer, SQFS_INODE_TYPE_CHR, archive_entry_rdev(archive.entry), mode, uid, gid, mtime));
+            rootdir->put_file(pathname, std::make_shared<dirtree_dev>(&writer, SQFS_INODE_TYPE_CHR, archive_entry_rdev(archive.entry), mode, uid, gid, mtime));
             break;
 
           case AE_IFSOCK:
-            rootdir.put_file(pathname, new dirtree_ipc(&writer, SQFS_INODE_TYPE_SOCK, mode, uid, gid, mtime));
+            rootdir->put_file(pathname, std::make_shared<dirtree_ipc>(&writer, SQFS_INODE_TYPE_SOCK, mode, uid, gid, mtime));
             break;
 
           case AE_IFIFO:
-            rootdir.put_file(pathname, new dirtree_ipc(&writer, SQFS_INODE_TYPE_PIPE, mode, uid, gid, mtime));
+            rootdir->put_file(pathname, std::make_shared<dirtree_ipc>(&writer, SQFS_INODE_TYPE_PIPE, mode, uid, gid, mtime));
             break;
 
           default:
@@ -148,7 +150,11 @@ int main(int argc, char * argv[])
         }
     }
 
-  failed = failed || rootdir.write_tables();
+  writer.flush_fragment();
+  writer.enqueue_finished();
+  writer_thread.join();
+  failed = failed || writer.writer_thread_failed();
+  failed = failed || rootdir->write_tables();
   failed = failed || writer.write_header();
 
   return failed;

@@ -28,9 +28,10 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
 
-dirtree_dir * dirtree_dir::subdir_for_path(std::string const & path)
+std::shared_ptr<dirtree_dir> dirtree_dir::subdir_for_path(std::string const & path)
 {
-  dirtree_dir * subdir = this;
+  auto const shared_this = shared_from_this();
+  auto subdir = std::shared_ptr<dirtree_dir>(shared_this, this);
   std::istringstream pathtokens(path);
   std::string component;
   while (std::getline(pathtokens, component, '/'))
@@ -39,12 +40,12 @@ dirtree_dir * dirtree_dir::subdir_for_path(std::string const & path)
   return subdir;
 }
 
-void dirtree_dir::put_file(std::string const & path, std::unique_ptr<dirtree> child)
+void dirtree_dir::put_file(std::string const & path, std::shared_ptr<dirtree> child)
 {
   auto sep = path.rfind('/');
   auto name = sep == path.npos ? path : path.substr(sep + 1);
   auto parent = sep == path.npos ? "/" : path.substr(0, sep);
-  subdir_for_path(parent)->put_child(name, std::move(child));
+  subdir_for_path(parent)->put_child(name, child);
 }
 
 auto get_child_entry(dirtree_dir * const dir, std::string const & name)
@@ -52,28 +53,30 @@ auto get_child_entry(dirtree_dir * const dir, std::string const & name)
   return std::find_if(dir->entries.begin(), dir->entries.end(), [&](auto & entry) -> bool { return name == entry.name; });
 }
 
-dirtree_dir * dirtree_dir::get_subdir(std::string const & name)
+std::shared_ptr<dirtree_dir> dirtree_dir::get_subdir(std::string const & name)
 {
   auto entry = get_child_entry(this, name);
   if (entry != entries.end())
     if (entry->inode->inode_type == SQFS_INODE_TYPE_DIR)
-      return static_cast<dirtree_dir *>(&*entry->inode);
+      return std::shared_ptr<dirtree_dir>(entry->inode, static_cast<dirtree_dir *>(entry->inode.get()));
     else
       {
         auto subdir = new dirtree_dir(wr);
-        entry->inode = std::unique_ptr<dirtree>(subdir);
-        return subdir;
+        entry->inode = std::shared_ptr<dirtree>(subdir);
+        return std::shared_ptr<dirtree_dir>(entry->inode, subdir);
       }
 
-  entries.push_back({name, std::unique_ptr<dirtree>(new dirtree_dir(wr))});
-  return static_cast<dirtree_dir *>(&*entries.back().inode);
+  auto const subdir = new dirtree_dir(wr);
+  std::shared_ptr<dirtree> subdir_shared(subdir);
+  entries.push_back({name, subdir_shared});
+  return std::shared_ptr<dirtree_dir>(subdir_shared, subdir);
 }
 
-void dirtree_dir::put_child(std::string const & name, std::unique_ptr<dirtree> child)
+void dirtree_dir::put_child(std::string const & name, std::shared_ptr<dirtree> child)
 {
   auto entry = get_child_entry(this, name);
   if (entry == entries.end())
-    entries.push_back({name, std::move(child)});
+    entries.push_back({name, child});
   else
-    entry->inode = std::move(child);
+    entry->inode = child;
 }

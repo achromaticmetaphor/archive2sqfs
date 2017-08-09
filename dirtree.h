@@ -27,7 +27,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
 
-struct dirtree
+struct dirtree : public std::enable_shared_from_this<dirtree>
 {
   uint16_t inode_type;
   uint16_t mode;
@@ -75,7 +75,7 @@ struct dirtree_ipc : public dirtree
 struct dirtree_entry
 {
   std::string name;
-  std::unique_ptr<dirtree> inode;
+  std::shared_ptr<dirtree> inode;
 };
 
 struct dirtree_reg : public dirtree
@@ -87,6 +87,7 @@ struct dirtree_reg : public dirtree
   uint32_t offset;
 
   std::vector<uint32_t> blocks;
+  std::size_t block_count;
 
   dirtree_reg(sqsh_writer * wr, uint16_t mode = 0644, uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0) : dirtree(wr, SQFS_INODE_TYPE_REG, mode, uid, gid, mtime)
   {
@@ -95,11 +96,11 @@ struct dirtree_reg : public dirtree
     sparse = 0;
     fragment = SQFS_FRAGMENT_NONE;
     offset = 0;
+    block_count = 0;
   }
 
-  void add_block(std::size_t, long int);
-  int append(unsigned char const *, std::size_t);
-  int flush();
+  void append(unsigned char const *, std::size_t);
+  void flush();
   virtual int write_inode(uint32_t);
 };
 
@@ -147,17 +148,18 @@ struct dirtree_dir : public dirtree
       entry.inode->dump_tree(path + (entry.inode->inode_type == SQFS_INODE_TYPE_DIR ? "/" : "\t") + entry.name);
   }
 
-  dirtree_dir * get_subdir(std::string const &);
-  void put_child(std::string const &, std::unique_ptr<dirtree>);
-  virtual int write_inode(uint32_t);
-  dirtree_dir * subdir_for_path(std::string const &);
-  void put_file(std::string const &, std::unique_ptr<dirtree>);
-
-  template <typename T>
-  void put_file(std::string const & path, T * dt)
+  static std::shared_ptr<dirtree_dir> create_root_dir(sqsh_writer * const wr)
   {
-    put_file(path, std::unique_ptr<dirtree>(dt));
+    auto const raw_root = new dirtree_dir(wr);
+    auto const shared_root = std::shared_ptr<dirtree>(raw_root);
+    return std::shared_ptr<dirtree_dir>(shared_root, raw_root);
   }
+
+  std::shared_ptr<dirtree_dir> get_subdir(std::string const &);
+  void put_child(std::string const &, std::shared_ptr<dirtree>);
+  virtual int write_inode(uint32_t);
+  std::shared_ptr<dirtree_dir> subdir_for_path(std::string const &);
+  void put_file(std::string const &, std::shared_ptr<dirtree>);
 };
 
 #endif
