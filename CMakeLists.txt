@@ -1,21 +1,14 @@
 cmake_minimum_required(VERSION 3.1)
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(LIBARCHIVE REQUIRED libarchive)
-pkg_check_modules(ZLIB REQUIRED zlib)
+find_package(LibArchive REQUIRED)
+find_package(ZLIB REQUIRED)
 
-include_directories(${LIBARCHIVE_INCLUDE_DIRS})
+include_directories(${LibArchive_INCLUDE_DIRS})
 include_directories(${ZLIB_INCLUDE_DIRS})
-
-link_directories(${LIBARCHIVE_LIBRARY_DIRS})
-link_directories(${ZLIB_LIBRARY_DIRS})
-
-add_definitions(${LIBARCHIVE_CFLAGS_OTHER})
-add_definitions(${ZLIB_CFLAGS_OTHER})
 
 add_executable(archive2sqfs archive2sqfs dirtree_dir dirtree_reg dirtree_write dw mdw sqsh_writer)
 
-target_link_libraries(archive2sqfs ${LIBARCHIVE_LIBRARIES})
+target_link_libraries(archive2sqfs ${LibArchive_LIBRARIES})
 target_link_libraries(archive2sqfs ${ZLIB_LIBRARIES})
 
 set_property(TARGET archive2sqfs PROPERTY C_STANDARD 99)
