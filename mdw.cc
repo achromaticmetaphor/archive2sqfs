@@ -18,6 +18,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 #include <zlib.h>
 
@@ -50,12 +51,13 @@ void mdw::write_block_no_pad(void)
     return;
 
   unsigned long int zsize = compressBound(buff.size());
-  unsigned char zbuff[zsize];
-  compress2(zbuff, &zsize, buff.data(), buff.size(), 9);
+  std::vector<unsigned char> zbuff(zsize);
+  compress2(zbuff.data(), &zsize, buff.data(), buff.size(), 9);
+  zbuff.resize(zsize);
 
-  bool const compressed = zsize < buff.size();
-  auto buf = compressed ? zbuff : buff.data();
-  auto const size = compressed ? zsize : buff.size();
+  bool const compressed = zbuff.size() < buff.size();
+  auto buf = compressed ? zbuff.data() : buff.data();
+  auto const size = compressed ? zbuff.size() : buff.size();
 
   write_block_compressed(size, buf, compressed ? size : (size | SQFS_META_BLOCK_COMPRESSED_BIT));
   buff.clear();

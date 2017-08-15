@@ -102,6 +102,12 @@ struct dirtree_reg : public dirtree
   void append(unsigned char const *, std::size_t);
   void flush();
   virtual int write_inode(uint32_t);
+
+  template <typename T>
+  void append(T & con)
+  {
+    append(con.data(), con.size());
+  }
 };
 
 struct dirtree_sym : public dirtree

@@ -115,7 +115,7 @@ template <std::size_t ENTRY_LB, typename G>
 static int sqsh_writer_write_indexed_table(sqsh_writer * wr, std::size_t const count, uint64_t & table_start, G entry)
 {
   std::size_t const index_count = (count >> ITD_SHIFT(ENTRY_LB)) + ((count & ITD_MASK(ENTRY_LB)) != 0);
-  unsigned char indices[index_count * 8];
+  std::vector<unsigned char> indices(index_count * 8);
   mdw mdw;
   std::size_t index = 0;
 
@@ -127,7 +127,7 @@ static int sqsh_writer_write_indexed_table(sqsh_writer * wr, std::size_t const c
       RETIF(maddr.error);
 
       if ((i & ITD_MASK(ENTRY_LB)) == 0)
-        le64(indices + index++ * 8, table_start + maddr.block);
+        le64(indices.data() + index++ * 8, table_start + maddr.block);
     }
 
   int error = 0;
@@ -141,8 +141,8 @@ static int sqsh_writer_write_indexed_table(sqsh_writer * wr, std::size_t const c
   table_start = tell;
 
   RETIF(error);
-  for (std::size_t i = 0; i < index_count * 8; ++i)
-    wr->outfile << indices[i];
+  for (auto const & ib : indices)
+    wr->outfile << ib;
   return wr->outfile.fail();
 }
 

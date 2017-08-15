@@ -22,6 +22,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstring>
 #include <memory>
 #include <thread>
+#include <vector>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -80,7 +81,6 @@ int main(int argc, char * argv[])
 
   archive_reader archive = infilepath == nullptr ? archive_reader(stdin) : archive_reader(infilepath);
   size_t const block_size = (size_t) 1 << writer.super.block_log;
-  unsigned char buff[block_size];
   bool failed = false;
   std::thread writer_thread(&sqsh_writer::writer_thread, &writer);
 
@@ -106,6 +106,7 @@ int main(int argc, char * argv[])
 
           case AE_IFREG:
             {
+              std::vector<unsigned char> buff;
               auto reg = std::make_shared<dirtree_reg>(&writer, mode, uid, gid, mtime);
               rootdir->put_file(pathname, reg);
 
@@ -113,12 +114,12 @@ int main(int argc, char * argv[])
               for (i = archive_entry_size(archive.entry); i >= block_size && !failed; i -= block_size)
                 {
                   failed = failed || archive.read(buff, block_size) != block_size;
-                  reg->append(buff, block_size);
+                  reg->append(buff);
                 }
               if (i > 0 && !failed)
                 {
                   failed = failed || archive.read(buff, i) != i;
-                  reg->append(buff, i);
+                  reg->append(buff);
                 }
 
               reg->flush();

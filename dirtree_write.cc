@@ -21,6 +21,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <algorithm>
 #include <cstddef>
 #include <memory>
+#include <vector>
 
 #include "dirtree.h"
 #include "le.h"
@@ -74,7 +75,8 @@ static int dirtree_write_dirtable_segment(struct dirtree * const dt, size_t * co
       dirtree_entry const & entry = dir.entries[*offset + i];
       size_t const len_name = entry.name.size();
       RETIF(len_name > 0xff);
-      unsigned char buff[8 + len_name];
+      std::vector<unsigned char> buff_v(8 + len_name);
+      unsigned char * buff = buff_v.data();
 
       le16(buff, entry.inode->inode_address.offset);
       le16(buff + 2, entry.inode->inode_number - header.inode_number);
@@ -125,7 +127,8 @@ static inline void dirtree_inode_common(struct dirtree * const dt, unsigned char
 static int dirtree_reg_write_inode_blocks(struct dirtree * const dt)
 {
   dirtree_reg & reg = *static_cast<dirtree_reg *>(dt);
-  unsigned char buff[reg.blocks.size() * 4];
+  std::vector<unsigned char> buff_v(reg.blocks.size() * 4);
+  unsigned char * buff = buff_v.data();
   for (size_t i = 0; i < reg.blocks.size(); i++)
     le32(buff + i * 4, reg.blocks[i]);
   return dt->wr->inode_writer.put(buff, reg.blocks.size() * 4).error;
@@ -210,7 +213,7 @@ int dirtree_sym::write_inode(uint32_t parent_inode_number)
   bool const has_xattr = xattr != 0xffffffffu;
   size_t const tlen = target.size();
   size_t const inode_len = tlen + (has_xattr ? 28 : 24);
-  unsigned char buff[inode_len];
+  unsigned char buff[28];
 
   dirtree_inode_common(this, buff);
   le32(buff + 16, nlink);
@@ -231,7 +234,7 @@ int dirtree_dev::write_inode(uint32_t parent_inode_number)
 {
   bool const has_xattr = xattr != 0xffffffffu;
   size_t const inode_len = has_xattr ? 28 : 24;
-  unsigned char buff[inode_len];
+  unsigned char buff[28];
   dirtree_inode_common(this, buff);
   le32(buff + 16, nlink);
   le32(buff + 20, rdev);
@@ -249,7 +252,7 @@ int dirtree_ipc::write_inode(uint32_t parent_inode_number)
 {
   bool const has_xattr = xattr != 0xffffffffu;
   size_t const inode_len = has_xattr ? 24 : 20;
-  unsigned char buff[inode_len];
+  unsigned char buff[24];
   dirtree_inode_common(this, buff);
   le32(buff + 16, nlink);
 

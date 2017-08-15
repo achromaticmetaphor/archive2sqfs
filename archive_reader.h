@@ -63,4 +63,11 @@ struct archive_reader
   {
     return archive_read_data(reader, buff, len);
   }
+
+  template <typename T>
+  auto read(T & con, size_t const len)
+  {
+    con.resize(len);
+    return read(con.data(), len);
+  }
 };
