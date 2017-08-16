@@ -24,10 +24,6 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <thread>
 #include <vector>
 
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-
 #include <archive.h>
 #include <archive_entry.h>
 
@@ -69,12 +65,6 @@ int main(int argc, char * argv[])
       strip = strtoll(argv[2], nullptr, 10);
     else
       return usage(argv[0]);
-
-  if (!access(outfilepath, F_OK))
-    {
-      fprintf(stderr, "ERROR: output file exists: %s\n", outfilepath);
-      return EINVAL;
-    }
 
   struct sqsh_writer writer(outfilepath);
   std::shared_ptr<dirtree_dir> rootdir = dirtree_dir::create_root_dir(&writer);
