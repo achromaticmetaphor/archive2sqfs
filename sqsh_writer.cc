@@ -33,7 +33,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 static int fround_to(std::ostream & f, long int const block)
 {
   auto const tell = f.tellp();
-  if (tell == -1)
+  if (tell == decltype(tell)(-1))
     return 1;
 
   std::size_t const fill = block - (tell % block);
@@ -137,7 +137,7 @@ static int sqsh_writer_write_indexed_table(sqsh_writer * wr, std::size_t const c
   error = error || mdw.out(wr->outfile);
 
   auto const tell = wr->outfile.tellp();
-  error = error || tell == -1;
+  error = error || tell == decltype(tell)(-1);
   table_start = tell;
 
   RETIF(error);
@@ -177,7 +177,7 @@ static int sqsh_writer_write_directory_table(struct sqsh_writer * const wr)
 static inline void tell_wr(struct sqsh_writer * const wr, int & error, uint64_t & start, int (*cb)(struct sqsh_writer *))
 {
   auto const tell = wr->outfile.tellp();
-  error = error || tell == -1;
+  error = error || tell == decltype(tell)(-1);
   start = tell;
   error = error || cb(wr);
 }
@@ -194,7 +194,7 @@ int sqsh_writer::write_tables()
 #undef TELL_WR
 
   long int const tell = outfile.tellp();
-  error = error || tell == -1;
+  error = error || tell == decltype(tell)(-1);
   super.bytes_used = tell;
 
   return error;

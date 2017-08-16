@@ -43,7 +43,7 @@ struct pending_write
   int handle_write()
   {
     auto const tell = out.tellp();
-    RETIF(tell == -1);
+    RETIF(tell == decltype(tell)(-1));
 
     auto result = future.get();
     RETIF(result.msize == SQFS_BLOCK_INVALID);
