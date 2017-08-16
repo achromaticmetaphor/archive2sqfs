@@ -22,6 +22,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "sqsh_defs.h"
