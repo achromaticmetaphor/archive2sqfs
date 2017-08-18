@@ -16,58 +16,80 @@ You should have received a copy of the GNU General Public License
 along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifndef LSL_ARCHIVE_READER_H
+#define LSL_ARCHIVE_READER_H
+
+#include <cstddef>
+
 #include <archive.h>
 #include <archive_entry.h>
 
-#define READER_BLOCKSIZE 10240
-
-struct archive_reader
+class archive_reader
 {
-  struct archive * reader;
+public:
+  bool fail;
   struct archive_entry * entry;
 
-  archive_reader()
-  {
-    reader = archive_read_new();
-    if (reader == nullptr || archive_read_support_filter_all(reader) != ARCHIVE_OK || archive_read_support_format_all(reader) != ARCHIVE_OK)
-      throw "failed to allocate or initialize archive_reader";
-  }
+  archive_reader(char const *);
+  archive_reader(std::FILE *);
+  ~archive_reader();
 
-  archive_reader(char const * const pathname) : archive_reader()
-  {
-    if (archive_read_open_filename(reader, pathname, READER_BLOCKSIZE) != ARCHIVE_OK)
-      throw "failed to open archive";
-  }
-
-  archive_reader(std::FILE * const handle) : archive_reader()
-  {
-    if (archive_read_open_FILE(reader, handle) != ARCHIVE_OK)
-      throw "failed to open archive";
-  }
-
-  ~archive_reader()
-  {
-    if (reader != nullptr)
-      archive_read_free(reader);
-  }
-
-  bool next()
-  {
-    auto const result = archive_read_next_header(reader, &entry);
-    if (result == ARCHIVE_FATAL)
-      throw "fatal libarchive error";
-    return result == ARCHIVE_OK;
-  }
-
-  auto read(void * const buff, size_t const len)
-  {
-    return archive_read_data(reader, buff, len);
-  }
-
+  bool next();
+  la_ssize_t read(void *, std::size_t);
   template <typename T>
-  auto read(T & con, size_t const len)
-  {
-    con.resize(len);
-    return read(con.data(), len);
-  }
+  la_ssize_t read(T &, std::size_t);
+
+private:
+  struct archive * reader;
+
+  archive_reader();
 };
+
+static std::size_t const reader_blocksize = 10240;
+
+archive_reader::archive_reader()
+{
+  reader = archive_read_new();
+  fail = reader == nullptr || archive_read_support_filter_all(reader) != ARCHIVE_OK || archive_read_support_format_all(reader) != ARCHIVE_OK;
+}
+
+archive_reader::archive_reader(char const * const pathname) : archive_reader()
+{
+  fail = fail || archive_read_open_filename(reader, pathname, reader_blocksize) != ARCHIVE_OK;
+}
+
+archive_reader::archive_reader(std::FILE * const handle) : archive_reader()
+{
+  fail = fail || archive_read_open_FILE(reader, handle) != ARCHIVE_OK;
+}
+
+archive_reader::~archive_reader()
+{
+  if (reader != nullptr)
+    archive_read_free(reader);
+}
+
+bool archive_reader::next()
+{
+  if (fail)
+    return false;
+
+  auto const result = archive_read_next_header(reader, &entry);
+  if (result == ARCHIVE_FATAL)
+    fail = true;
+  return result == ARCHIVE_OK;
+}
+
+la_ssize_t archive_reader::read(void * const buff, std::size_t const len)
+{
+  return archive_read_data(reader, buff, len);
+}
+
+template <typename T>
+la_ssize_t archive_reader::read(T & con, std::size_t const len)
+{
+  con.resize(len);
+  return read(con.data(), len);
+}
+
+#endif

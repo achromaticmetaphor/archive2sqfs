@@ -144,6 +144,7 @@ int main(int argc, char * argv[])
   writer.flush_fragment();
   writer.enqueue_finished();
   writer_thread.join();
+  failed = failed || archive.fail;
   failed = failed || writer.writer_thread_failed();
   failed = failed || rootdir->write_tables();
   failed = failed || writer.write_header();
