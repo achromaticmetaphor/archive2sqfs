@@ -68,11 +68,9 @@ int main(int argc, char * argv[])
 
   struct sqsh_writer writer(outfilepath);
   std::shared_ptr<dirtree_dir> rootdir = dirtree_dir::create_root_dir(&writer);
-
   archive_reader archive = infilepath == nullptr ? archive_reader(stdin) : archive_reader(infilepath);
   size_t const block_size = (size_t) 1 << writer.super.block_log;
   bool failed = false;
-  std::thread writer_thread(&sqsh_writer::writer_thread, &writer);
 
   while (!failed && archive.next())
     {
@@ -141,11 +139,8 @@ int main(int argc, char * argv[])
         }
     }
 
-  writer.flush_fragment();
-  writer.enqueue_finished();
-  writer_thread.join();
   failed = failed || archive.fail;
-  failed = failed || writer.writer_thread_failed();
+  failed = failed || writer.finish_data();
   failed = failed || rootdir->write_tables();
   failed = failed || writer.write_header();
 

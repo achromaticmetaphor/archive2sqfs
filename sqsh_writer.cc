@@ -220,3 +220,11 @@ void sqsh_writer::writer_thread()
     failed = failed || option.value->handle_write();
   writer_failed = failed;
 }
+
+bool sqsh_writer::finish_data()
+{
+  flush_fragment();
+  writer_queue.finish();
+  thread.join();
+  return writer_failed;
+}

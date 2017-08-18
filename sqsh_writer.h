@@ -22,8 +22,8 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstdint>
 #include <fstream>
 #include <memory>
-#include <unordered_map>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include "bounded_work_queue.h"
@@ -75,6 +75,7 @@ struct sqsh_writer
   std::unordered_map<uint32_t, uint16_t> ids;
   std::unordered_map<uint16_t, uint32_t> rids;
 
+  std::thread thread;
   bounded_work_queue<std::unique_ptr<pending_write>> writer_queue;
   std::shared_ptr<compressor> comp;
   bool writer_failed = false;
@@ -105,16 +106,7 @@ struct sqsh_writer
   void enqueue_block(std::shared_ptr<std::vector<uint32_t>>, std::shared_ptr<uint64_t>);
   void enqueue_fragment();
   void writer_thread();
-
-  void enqueue_finished()
-  {
-    writer_queue.finish();
-  }
-
-  bool writer_thread_failed()
-  {
-    return writer_failed;
-  }
+  bool finish_data();
 
   sqsh_writer(char const * path, int blog = SQFS_BLOCK_LOG_DEFAULT) : outfile(path, std::ios_base::binary), writer_queue(thread_count()), comp(new compressor_zlib())
   {
@@ -122,6 +114,13 @@ struct sqsh_writer
     outfile.seekp(SQFS_SUPER_SIZE);
     current_block = get_block();
     current_fragment = get_block();
+    thread = std::thread(&sqsh_writer::writer_thread, this);
+  }
+
+  ~sqsh_writer()
+  {
+    if (thread.joinable())
+      finish_data();
   }
 };
 
