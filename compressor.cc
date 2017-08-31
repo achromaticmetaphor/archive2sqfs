@@ -21,29 +21,44 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <zlib.h>
 
+#include <iostream>
+
 #include "compressor.h"
+#include "optional.h"
 #include "sqsh_defs.h"
 
-static uint32_t compress_data_zlib(std::vector<unsigned char> & out, std::vector<unsigned char> const && in)
+static bool compress_zlib(std::vector<unsigned char> & out, std::vector<unsigned char> const & in)
 {
-  if (in.size() == 0)
-    return SQFS_BLOCK_COMPRESSED_BIT;
-
   auto zsize = compressBound(in.size());
   out.resize(zsize);
   if (compress2(out.data(), &zsize, in.data(), in.size(), 9) != Z_OK)
-    return SQFS_BLOCK_INVALID;
+    return false;
   out.resize(zsize);
+  return true;
+}
+
+template <typename C>
+static optional<bool> compress_data(C comp, std::vector<unsigned char> & out, std::vector<unsigned char> const && in)
+{
+  if (in.empty())
+    return false;
+
+  if (!comp(out, in))
+    return {};
 
   bool const compressed = out.size() < in.size();
   if (!compressed)
     out = std::move(in);
 
-  return compressed ? out.size() : (out.size() | SQFS_BLOCK_COMPRESSED_BIT);
+  return bool(compressed);
 }
 
-compression_result compressor_zlib::compress(block_type && out, block_type && in)
+optional<compression_result> compressor_zlib::compress(block_type && in)
 {
-  auto const bsize = compress_data_zlib(*out, std::move(*in));
-  return {bsize, std::move(out)};
+  block_type out;
+  auto const compressed_opt = compress_data(compress_zlib, out, std::move(in));
+  if (compressed_opt.has_value)
+    return {{std::move(out), compressed_opt.value}};
+  else
+    return {};
 }

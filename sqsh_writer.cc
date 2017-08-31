@@ -44,19 +44,19 @@ static int fround_to(std::ostream & f, long int const block)
 
 void sqsh_writer::flush_fragment()
 {
-  if (!current_fragment->empty())
+  if (!current_fragment.empty())
     enqueue_fragment();
 }
 
 size_t sqsh_writer::put_fragment()
 {
   size_t const block_size = (size_t) 1 << super.block_log;
-  if (current_fragment->size() + current_block->size() > block_size)
+  if (current_fragment.size() + current_block.size() > block_size)
     flush_fragment();
 
-  size_t const offset = current_fragment->size();
-  current_fragment->insert(current_fragment->end(), current_block->begin(), current_block->end());
-  current_block->clear();
+  size_t const offset = current_fragment.size();
+  current_fragment.insert(current_fragment.end(), current_block.begin(), current_block.end());
+  current_block.clear();
   return offset;
 }
 
@@ -116,7 +116,7 @@ static int sqsh_writer_write_indexed_table(sqsh_writer * wr, std::size_t const c
 {
   std::size_t const index_count = (count >> ITD_SHIFT(ENTRY_LB)) + ((count & ITD_MASK(ENTRY_LB)) != 0);
   std::vector<unsigned char> indices(index_count * 8);
-  mdw mdw;
+  mdw mdw(*wr->comp);
   std::size_t index = 0;
 
   for (std::size_t i = 0; i < count; ++i)
@@ -204,13 +204,13 @@ void sqsh_writer::enqueue_fragment()
 {
   writer_queue.push(std::unique_ptr<pending_write>(new pending_fragment(outfile, comp->compress_async(std::move(current_fragment)), fragments)));
   ++fragment_count;
-  current_fragment = get_block();
+  current_fragment = {};
 }
 
 void sqsh_writer::enqueue_block(std::shared_ptr<std::vector<uint32_t>> blocks, std::shared_ptr<uint64_t> start)
 {
   writer_queue.push(std::unique_ptr<pending_write>(new pending_block(outfile, comp->compress_async(std::move(current_block)), blocks, start)));
-  current_block = get_block();
+  current_block = {};
 }
 
 void sqsh_writer::writer_thread()

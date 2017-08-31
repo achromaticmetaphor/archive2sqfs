@@ -28,17 +28,18 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "compressor.h"
 #include "fragment_entry.h"
+#include "optional.h"
 #include "util.h"
 
 struct pending_write
 {
   std::ofstream & out;
-  std::future<compression_result> future;
+  std::future<optional<compression_result>> future;
 
-  pending_write(std::ofstream & out, std::future<compression_result> && future) : out(out), future(std::move(future)) {}
+  pending_write(std::ofstream & out, std::future<optional<compression_result>> && future) : out(out), future(std::move(future)) {}
   virtual ~pending_write() = default;
 
-  virtual void report(uint64_t, uint32_t) = 0;
+  virtual void report(uint64_t, uint32_t, bool) = 0;
 
   int handle_write()
   {
@@ -46,13 +47,13 @@ struct pending_write
     RETIF(tell == decltype(tell)(-1));
 
     auto result = future.get();
-    RETIF(result.msize == SQFS_BLOCK_INVALID);
+    RETIF(!result.has_value);
 
-    for (auto const & c : *result.block)
+    for (auto const & c : result.value.block)
       out << c;
     RETIF(out.fail());
 
-    report(tell, result.msize);
+    report(tell, result.value.block.size(), result.value.compressed);
     return 0;
   }
 };
@@ -61,11 +62,11 @@ struct pending_fragment : public pending_write
 {
   std::vector<fragment_entry> & fragments;
 
-  pending_fragment(std::ofstream & out, std::future<compression_result> && future, std::vector<fragment_entry> & frags) : pending_write(out, std::move(future)), fragments(frags) {}
+  pending_fragment(std::ofstream & out, std::future<optional<compression_result>> && future, std::vector<fragment_entry> & frags) : pending_write(out, std::move(future)), fragments(frags) {}
 
-  virtual void report(uint64_t start, uint32_t size)
+  virtual void report(uint64_t start, uint32_t size, bool compressed)
   {
-    fragments.push_back({start, size});
+    fragments.push_back({start, size | (compressed ? 0 : SQFS_BLOCK_COMPRESSED_BIT)});
   }
 };
 
@@ -74,13 +75,13 @@ struct pending_block : public pending_write
   std::shared_ptr<std::vector<uint32_t>> sizes;
   std::shared_ptr<uint64_t> start_block;
 
-  pending_block(std::ofstream & out, std::future<compression_result> && future, std::shared_ptr<std::vector<uint32_t>> sizes, std::shared_ptr<uint64_t> start) : pending_write(out, std::move(future)), sizes(sizes), start_block(start) {}
+  pending_block(std::ofstream & out, std::future<optional<compression_result>> && future, std::shared_ptr<std::vector<uint32_t>> sizes, std::shared_ptr<uint64_t> start) : pending_write(out, std::move(future)), sizes(sizes), start_block(start) {}
 
-  virtual void report(uint64_t start, uint32_t size)
+  virtual void report(uint64_t start, uint32_t size, bool compressed)
   {
     if (sizes->empty())
       *start_block = start;
-    sizes->push_back(size);
+    sizes->push_back(size | (compressed ? 0 : SQFS_BLOCK_COMPRESSED_BIT));
   }
 };
 

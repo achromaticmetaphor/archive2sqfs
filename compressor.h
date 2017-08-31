@@ -24,33 +24,30 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <utility>
 #include <vector>
 
-using block_type = std::unique_ptr<std::vector<unsigned char>>;
+#include "optional.h"
 
-static inline block_type get_block()
-{
-  return std::make_unique<block_type::element_type>();
-}
+using block_type = std::vector<unsigned char>;
 
 struct compression_result
 {
-  uint32_t msize;
   block_type block;
+  bool compressed;
 };
 
 struct compressor
 {
-  virtual compression_result compress(block_type &&, block_type &&) = 0;
+  virtual optional<compression_result> compress(block_type &&) = 0;
   virtual ~compressor() = default;
 
-  std::future<compression_result> compress_async(block_type && in)
+  std::future<optional<compression_result>> compress_async(block_type && in)
   {
-    return std::async(std::launch::async, &compressor::compress, this, get_block(), std::move(in));
+    return std::async(std::launch::async, &compressor::compress, this, std::move(in));
   }
 };
 
 struct compressor_zlib : public compressor
 {
-  virtual compression_result compress(block_type &&, block_type &&);
+  virtual optional<compression_result> compress(block_type &&);
 };
 
 #endif

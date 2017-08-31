@@ -20,8 +20,6 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstdint>
 #include <vector>
 
-#include <zlib.h>
-
 #include "le.h"
 #include "mdw.h"
 #include "sqsh_defs.h"
@@ -45,29 +43,27 @@ void mdw::write_block_compressed(std::size_t const block_len, unsigned char cons
     table.push_back(block[i]);
 }
 
-void mdw::write_block_no_pad(void)
+bool mdw::write_block_no_pad(void)
 {
-  if (buff.size() == 0)
-    return;
+  if (buff.empty())
+    return false;
 
-  unsigned long int zsize = compressBound(buff.size());
-  std::vector<unsigned char> zbuff(zsize);
-  compress2(zbuff.data(), &zsize, buff.data(), buff.size(), 9);
-  zbuff.resize(zsize);
+  auto comp_opt = comp.compress(block_type{buff});
+  if (!comp_opt.has_value)
+    return true;
 
-  bool const compressed = zbuff.size() < buff.size();
-  auto buf = compressed ? zbuff.data() : buff.data();
-  auto const size = compressed ? zbuff.size() : buff.size();
-
-  write_block_compressed(size, buf, compressed ? size : (size | SQFS_META_BLOCK_COMPRESSED_BIT));
+  auto const size = comp_opt.value.block.size();
+  write_block_compressed(size, comp_opt.value.block.data(), comp_opt.value.compressed ? size : (size | SQFS_META_BLOCK_COMPRESSED_BIT));
   buff.clear();
+
+  return false;
 }
 
-void mdw::write_block(void)
+bool mdw::write_block(void)
 {
   while (buff.size() < SQFS_META_BLOCK_SIZE)
     buff.push_back(0);
-  write_block_no_pad();
+  return write_block_no_pad();
 }
 
 meta_address mdw::put(unsigned char const * b, std::size_t len)
@@ -82,7 +78,8 @@ meta_address mdw::put(unsigned char const * b, std::size_t len)
       for (std::size_t i = 0; i < added; ++i)
         buff.push_back(b[i]);
       if (buff.size() == SQFS_META_BLOCK_SIZE)
-        write_block();
+        if (write_block())
+          return 1;
 
       len -= added;
       b += added;

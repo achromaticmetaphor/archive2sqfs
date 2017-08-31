@@ -25,15 +25,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <queue>
 #include <utility>
 
-template <typename T>
-struct optional
-{
-  bool has_value;
-  T value;
-
-  optional() : has_value(false) {}
-  optional(T && value) : has_value(true), value(std::move(value)) {}
-};
+#include "optional.h"
 
 template <typename T>
 class bounded_work_queue

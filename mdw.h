@@ -22,10 +22,12 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <ostream>
 #include <vector>
 
+#include "compressor.h"
 #include "sqsh_defs.h"
 
 struct mdw
 {
+  compressor & comp;
   std::vector<unsigned char> table;
   std::vector<unsigned char> buff;
 
@@ -42,9 +44,11 @@ struct mdw
   }
 
   void write_block_compressed(std::size_t, unsigned char const *, uint16_t);
-  void write_block_no_pad(void);
-  void write_block(void);
+  bool write_block_no_pad(void);
+  bool write_block(void);
   meta_address put(unsigned char const *, size_t);
+
+  mdw(compressor & comp) : comp(comp) {}
 };
 
 #endif
