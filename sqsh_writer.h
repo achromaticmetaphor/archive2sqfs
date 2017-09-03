@@ -35,11 +35,9 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "util.h"
 
 #define SQFS_BLOCK_LOG_DEFAULT 17
-#define SQFS_COMPRESSION_TYPE_DEFAULT SQFS_COMPRESSION_TYPE_ZLIB
 
 struct sqfs_super
 {
-  uint16_t compression = SQFS_COMPRESSION_TYPE_DEFAULT;
   uint16_t block_log = SQFS_BLOCK_LOG_DEFAULT;
   uint16_t flags = 0;
 

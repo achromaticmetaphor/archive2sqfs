@@ -70,7 +70,7 @@ int sqsh_writer::write_header()
   le32(header + 12, 1u << super.block_log);
   le32(header + 16, fragments.size());
 
-  le16(header + 20, super.compression);
+  le16(header + 20, comp->type);
   le16(header + 22, super.block_log);
   le16(header + 24, super.flags);
   le16(header + 26, ids.size());
