@@ -49,8 +49,7 @@ struct pending_write
     auto result = future.get();
     RETIF(!result.has_value);
 
-    for (auto const & c : result.value.block)
-      out << c;
+    out.write(reinterpret_cast<char *>(result.value.block.data()), result.value.block.size());
     RETIF(out.fail());
 
     report(tell, result.value.block.size(), result.value.compressed);

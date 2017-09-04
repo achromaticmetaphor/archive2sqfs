@@ -33,8 +33,7 @@ struct mdw
 
   bool out(std::ostream & out)
   {
-    for (auto c : table)
-      out << c;
+    out.write(reinterpret_cast<char *>(table.data()), table.size());
     return out.fail();
   }
 

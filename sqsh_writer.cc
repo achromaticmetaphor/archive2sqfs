@@ -88,8 +88,7 @@ int sqsh_writer::write_header()
 
   RETIF(fround_to(outfile, SQFS_PAD_SIZE));
   outfile.seekp(0);
-  for (std::size_t i = 0; i < SQFS_SUPER_SIZE; ++i)
-    outfile << header[i];
+  outfile.write(reinterpret_cast<char *>(header), SQFS_SUPER_SIZE);
   return outfile.fail();
 }
 
@@ -141,8 +140,7 @@ static int sqsh_writer_write_indexed_table(sqsh_writer * wr, std::size_t const c
   table_start = tell;
 
   RETIF(error);
-  for (auto const & ib : indices)
-    wr->outfile << ib;
+  wr->outfile.write(reinterpret_cast<char *>(indices.data()), indices.size());
   return wr->outfile.fail();
 }
 
