@@ -35,9 +35,9 @@ public:
   ~archive_reader();
 
   bool next();
-  la_ssize_t read(void *, std::size_t);
+  auto read(void *, std::size_t);
   template <typename T>
-  la_ssize_t read(T &, std::size_t);
+  auto read(T &, std::size_t);
 
 private:
   struct archive * reader;
@@ -80,13 +80,13 @@ bool archive_reader::next()
   return result == ARCHIVE_OK;
 }
 
-la_ssize_t archive_reader::read(void * const buff, std::size_t const len)
+auto archive_reader::read(void * const buff, std::size_t const len)
 {
   return archive_read_data(reader, buff, len);
 }
 
 template <typename T>
-la_ssize_t archive_reader::read(T & con, std::size_t const len)
+auto archive_reader::read(T & con, std::size_t const len)
 {
   con.resize(len);
   return read(con.data(), len);
