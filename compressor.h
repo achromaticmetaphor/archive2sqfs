@@ -21,6 +21,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <future>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -60,5 +61,19 @@ struct compressor_none : public compressor
   virtual optional<compression_result> compress(block_type && in) { return {{std::move(in), false}}; }
   compressor_none() : compressor(SQFS_COMPRESSION_TYPE_ZLIB) {}
 };
+
+#include <iostream>
+
+static inline compressor * get_compressor_for(std::string const & type)
+{
+  if (type == "zlib")
+    return new compressor_zlib{};
+  else if (type == "none")
+    return new compressor_none{};
+  else
+    return new compressor_zlib{};
+}
+
+static std::string const COMPRESSOR_DEFAULT = "zlib";
 
 #endif

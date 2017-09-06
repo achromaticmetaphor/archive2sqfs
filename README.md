@@ -32,7 +32,7 @@ How do I build it?
 
 How do I use it?
 ----------------
-    archive2sqfs [--strip N] outfile [infile]
+    archive2sqfs [--strip=N] [--compressor=<zlib|none>] outfile [infile]
 
 - The --strip option removes leading directories from archive entries.
 - If the infile parameter is omitted, the input archive will be read from stdin.

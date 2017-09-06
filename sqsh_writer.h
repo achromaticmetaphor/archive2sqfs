@@ -107,7 +107,8 @@ struct sqsh_writer
   void writer_thread();
   bool finish_data();
 
-  sqsh_writer(char const * path, int blog = SQFS_BLOCK_LOG_DEFAULT) : outfile(path, std::ios_base::binary), writer_queue(thread_count()), comp(new compressor_zlib()), dentry_writer(*comp), inode_writer(*comp)
+  template <typename P>
+  sqsh_writer(P path, int blog, std::string comptype) : outfile(path, std::ios_base::binary), writer_queue(thread_count()), comp(get_compressor_for(comptype)), dentry_writer(*comp), inode_writer(*comp)
   {
     super.block_log = blog;
     outfile.seekp(SQFS_SUPER_SIZE);

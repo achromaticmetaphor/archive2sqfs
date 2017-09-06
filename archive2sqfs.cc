@@ -20,6 +20,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <cerrno>
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <thread>
 #include <vector>
@@ -28,13 +29,14 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <archive_entry.h>
 
 #include "archive_reader.h"
+#include "compressor.h"
 #include "dirtree.h"
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
 
-static int usage(char const * const progname)
+static int usage(std::string const & progname)
 {
-  fprintf(stderr, "usage: %s [--strip N] outfile [infile]\n", progname);
+  std::cerr << "usage: " << progname << " [--strip=N] [--compressor=<zlib|none>] outfile [infile]" << std::endl;
   return EINVAL;
 }
 
@@ -51,24 +53,41 @@ static char const * strip_path(size_t const strip, char const * pathname)
   return pathname;
 }
 
+static bool begins_with(std::string const & s, std::string const & prefix)
+{
+  return prefix.size() <= s.size() && prefix.compare(0, prefix.size(), s, 0, prefix.size()) == 0;
+}
+
+template <typename C>
+static bool proc_prefix_arg(std::string const & prefix, std::string const & arg, C act)
+{
+  bool const matched = begins_with(arg, prefix);
+  if (matched)
+    act(arg.substr(prefix.size()));
+  return matched;
+}
+
 int main(int argc, char * argv[])
 {
-  if (argc < 2 || argc > 5)
+  std::size_t strip = 0;
+  int block_log = SQFS_BLOCK_LOG_DEFAULT;
+  std::string compressor = COMPRESSOR_DEFAULT;
+
+  std::vector<std::string> args;
+  for (int i = 1; i < argc; ++i)
+    if (proc_prefix_arg("--strip=", argv[i], [&](auto s) { strip = strtoll(s.data(), nullptr, 10); }))
+      ;
+    else if (proc_prefix_arg("--compressor=", argv[i], [&](auto s) { compressor = s; }))
+      ;
+    else
+      args.push_back(argv[i]);
+
+  if (args.size() < 1 || args.size() > 2)
     return usage(argv[0]);
 
-  char const * const outfilepath = argv[argc <= 3 ? 1 : 3];
-  char const * infilepath = argc == 3 || argc == 5 ? argv[argc - 1] : nullptr;
-  size_t strip = 0;
-
-  if (argc > 3)
-    if (!std::strcmp("--strip", argv[1]))
-      strip = strtoll(argv[2], nullptr, 10);
-    else
-      return usage(argv[0]);
-
-  struct sqsh_writer writer(outfilepath);
+  struct sqsh_writer writer(args[0], block_log, compressor);
+  archive_reader archive = args.size() > 1 ? archive_reader(args[1]) : archive_reader(stdin);
   std::shared_ptr<dirtree_dir> rootdir = dirtree_dir::create_root_dir(&writer);
-  archive_reader archive = infilepath == nullptr ? archive_reader(stdin) : archive_reader(infilepath);
   size_t const block_size = (size_t) 1 << writer.super.block_log;
   bool failed = false;
 
