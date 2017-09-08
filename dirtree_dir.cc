@@ -57,14 +57,16 @@ std::shared_ptr<dirtree_dir> dirtree_dir::get_subdir(std::string const & name)
 {
   auto entry = get_child_entry(this, name);
   if (entry != entries.end())
-    if (entry->inode->inode_type == SQFS_INODE_TYPE_DIR)
-      return std::shared_ptr<dirtree_dir>(entry->inode, static_cast<dirtree_dir *>(entry->inode.get()));
-    else
-      {
-        auto subdir = new dirtree_dir(wr);
-        entry->inode = std::shared_ptr<dirtree>(subdir);
-        return std::shared_ptr<dirtree_dir>(entry->inode, subdir);
-      }
+    {
+      if (entry->inode->inode_type == SQFS_INODE_TYPE_DIR)
+        return std::shared_ptr<dirtree_dir>(entry->inode, static_cast<dirtree_dir *>(entry->inode.get()));
+      else
+        {
+          auto subdir = new dirtree_dir(wr);
+          entry->inode = std::shared_ptr<dirtree>(subdir);
+          return std::shared_ptr<dirtree_dir>(entry->inode, subdir);
+        }
+    }
 
   auto const subdir = new dirtree_dir(wr);
   std::shared_ptr<dirtree> subdir_shared(subdir);
