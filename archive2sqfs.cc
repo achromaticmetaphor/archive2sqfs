@@ -88,7 +88,7 @@ int main(int argc, char * argv[])
   struct sqsh_writer writer(args[0], block_log, compressor);
   archive_reader archive = args.size() > 1 ? archive_reader(args[1]) : archive_reader(stdin);
   std::shared_ptr<dirtree_dir> rootdir = dirtree_dir::create_root_dir(&writer);
-  size_t const block_size = (size_t) 1 << writer.super.block_log;
+  int64_t const block_size = 1 << writer.super.block_log;
   bool failed = false;
 
   while (!failed && archive.next())
