@@ -184,7 +184,7 @@ static inline size_t dirtree_inode_reg(unsigned char buff[56], dirtree_reg & reg
     }
 }
 
-int dirtree_reg::write_inode(uint32_t const parent_inode_number)
+int dirtree_reg::write_inode(uint32_t)
 {
   unsigned char buff[56];
   dirtree_inode_common(this, buff);
@@ -208,7 +208,7 @@ int dirtree_dir::write_inode(uint32_t const parent_inode_number)
   return inode_address.error;
 }
 
-int dirtree_sym::write_inode(uint32_t parent_inode_number)
+int dirtree_sym::write_inode(uint32_t)
 {
   bool const has_xattr = xattr != 0xffffffffu;
   size_t const tlen = target.size();
@@ -230,7 +230,7 @@ int dirtree_sym::write_inode(uint32_t parent_inode_number)
   return inode_address.error;
 }
 
-int dirtree_dev::write_inode(uint32_t parent_inode_number)
+int dirtree_dev::write_inode(uint32_t)
 {
   bool const has_xattr = xattr != 0xffffffffu;
   size_t const inode_len = has_xattr ? 28 : 24;
@@ -248,7 +248,7 @@ int dirtree_dev::write_inode(uint32_t parent_inode_number)
   return inode_address.error;
 }
 
-int dirtree_ipc::write_inode(uint32_t parent_inode_number)
+int dirtree_ipc::write_inode(uint32_t)
 {
   bool const has_xattr = xattr != 0xffffffffu;
   size_t const inode_len = has_xattr ? 24 : 20;
