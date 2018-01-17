@@ -211,22 +211,21 @@ int dirtree_dir::write_inode(uint32_t const parent_inode_number)
 int dirtree_sym::write_inode(uint32_t)
 {
   bool const has_xattr = xattr != 0xffffffffu;
-  size_t const tlen = target.size();
-  size_t const inode_len = tlen + (has_xattr ? 28 : 24);
-  unsigned char buff[28];
+  size_t const inode_len = target.size() + (has_xattr ? 28 : 24);
+  std::vector<unsigned char> buff(inode_len);
 
-  dirtree_inode_common(this, buff);
-  le32(buff + 16, nlink);
-  le32(buff + 20, tlen);
+  dirtree_inode_common(this, buff.data());
+  le32(buff.data() + 16, nlink);
+  le32(buff.data() + 20, target.size());
   for (std::size_t i = 0; i < target.size(); ++i)
-    i[buff + 24] = target[i];
+    buff[i + 24] = target[i];
 
   if (has_xattr)
-    le32(buff + 24 + tlen, xattr);
+    le32(buff.data() + 24 + target.size(), xattr);
   else
-    le16(buff, inode_type - 7);
+    le16(buff.data(), inode_type - 7);
 
-  inode_address = wr->inode_writer.put(buff, inode_len);
+  inode_address = wr->inode_writer.put(buff.data(), buff.size());
   return inode_address.error;
 }
 
