@@ -16,8 +16,6 @@ You should have received a copy of the GNU General Public License
 along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define _POSIX_C_SOURCE 200809L
-
 #include <algorithm>
 #include <cstddef>
 #include <memory>
