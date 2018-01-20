@@ -21,6 +21,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <cstdint>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -71,12 +72,6 @@ struct dirtree_ipc : public dirtree
   }
 
   virtual int write_inode(uint32_t);
-};
-
-struct dirtree_entry
-{
-  std::string name;
-  std::shared_ptr<dirtree> inode;
 };
 
 struct dirtree_reg : public dirtree
@@ -141,7 +136,7 @@ struct dirtree_dev : public dirtree
 
 struct dirtree_dir : public dirtree
 {
-  std::vector<dirtree_entry> entries;
+  std::map<std::string, std::shared_ptr<dirtree>> entries;
   uint32_t filesize;
   uint32_t dtable_start_block;
   uint16_t dtable_start_offset;
@@ -152,7 +147,7 @@ struct dirtree_dir : public dirtree
   {
     std::cout << path << std::endl;
     for (auto & entry : entries)
-      entry.inode->dump_tree(path + (entry.inode->inode_type == SQFS_INODE_TYPE_DIR ? "/" : "\t") + entry.name);
+      entry.second->dump_tree(path + (entry.second->inode_type == SQFS_INODE_TYPE_DIR ? "/" : "\t") + entry.first);
   }
 
   static std::shared_ptr<dirtree_dir> create_root_dir(sqsh_writer * const wr)
@@ -162,8 +157,12 @@ struct dirtree_dir : public dirtree
     return std::shared_ptr<dirtree_dir>(shared_root, raw_root);
   }
 
+  void put_child(std::string const & name, std::shared_ptr<dirtree> child)
+  {
+    entries[name] = child;
+  }
+
   std::shared_ptr<dirtree_dir> get_subdir(std::string const &);
-  void put_child(std::string const &, std::shared_ptr<dirtree>);
   virtual int write_inode(uint32_t);
   std::shared_ptr<dirtree_dir> subdir_for_path(std::string const &);
   void put_file(std::string const &, std::shared_ptr<dirtree>);
