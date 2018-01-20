@@ -214,8 +214,8 @@ void sqsh_writer::enqueue_block(std::shared_ptr<std::vector<uint32_t>> blocks, s
 void sqsh_writer::writer_thread()
 {
   bool failed = false;
-  for (auto option = writer_queue.pop(); option.has_value; option = writer_queue.pop())
-    failed = failed || option.value->handle_write();
+  for (auto option = writer_queue.pop(); option; option = writer_queue.pop())
+    failed = failed || (*option)->handle_write();
   writer_failed = failed;
 }
 

@@ -57,8 +57,8 @@ optional<compression_result> compressor_zlib::compress(block_type && in)
 {
   block_type out;
   auto const compressed_opt = compress_data(compress_zlib, out, std::move(in));
-  if (compressed_opt.has_value)
-    return {{std::move(out), compressed_opt.value}};
+  if (compressed_opt)
+    return {{std::move(out), *compressed_opt}};
   else
     return {};
 }

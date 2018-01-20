@@ -19,14 +19,28 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef LSL_OPTIONAL_H
 #define LSL_OPTIONAL_H
 
+#if __cplusplus >= 201703L && __has_include(<optional>)
+#include <optional>
+using std::optional;
+#else
+
 template <typename T>
-struct optional
+class optional
 {
   bool has_value;
   T value;
 
+public:
   optional() : has_value(false) {}
   optional(T && value) : has_value(true), value(std::move(value)) {}
+
+  T & operator*() { return value; }
+  T * operator->() { return &value; }
+  T const & operator*() const { return value; }
+  T const * operator->() const { return &value; }
+  explicit operator bool() const { return has_value; }
 };
+
+#endif
 
 #endif

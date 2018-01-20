@@ -49,11 +49,11 @@ bool mdw::write_block_no_pad(void)
     return false;
 
   auto comp_opt = comp.compress(block_type{buff});
-  if (!comp_opt.has_value)
+  if (!comp_opt)
     return true;
 
-  auto const size = comp_opt.value.block.size();
-  write_block_compressed(size, comp_opt.value.block.data(), comp_opt.value.compressed ? size : (size | SQFS_META_BLOCK_COMPRESSED_BIT));
+  auto const size = comp_opt->block.size();
+  write_block_compressed(size, comp_opt->block.data(), comp_opt->compressed ? size : (size | SQFS_META_BLOCK_COMPRESSED_BIT));
   buff.clear();
 
   return false;

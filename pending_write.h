@@ -47,12 +47,12 @@ struct pending_write
     RETIF(tell == decltype(tell)(-1));
 
     auto result = future.get();
-    RETIF(!result.has_value);
+    RETIF(!result);
 
-    out.write(reinterpret_cast<char *>(result.value.block.data()), result.value.block.size());
+    out.write(reinterpret_cast<char *>(result->block.data()), result->block.size());
     RETIF(out.fail());
 
-    report(tell, result.value.block.size(), result.value.compressed);
+    report(tell, result->block.size(), result->compressed);
     return 0;
   }
 };
