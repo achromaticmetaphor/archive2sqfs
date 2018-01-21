@@ -42,9 +42,9 @@ struct compressor
   virtual optional<compression_result> compress(block_type &&) = 0;
   virtual ~compressor() = default;
 
-  std::future<optional<compression_result>> compress_async(block_type && in)
+  std::future<optional<compression_result>> compress_async(block_type && in, std::launch const policy = std::launch::async)
   {
-    return std::async(std::launch::async, &compressor::compress, this, std::move(in));
+    return std::async(policy, &compressor::compress, this, std::move(in));
   }
 
   compressor(uint16_t type) : type(type) {}

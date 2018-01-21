@@ -196,14 +196,20 @@ int sqsh_writer::write_tables()
 
 void sqsh_writer::enqueue_fragment()
 {
-  writer_queue.push(std::unique_ptr<pending_write>(new pending_fragment(outfile, comp->compress_async(std::move(current_fragment)), fragments)));
+  if (single_threaded)
+    writer_failed = writer_failed || pending_fragment(outfile, comp->compress_async(std::move(current_fragment), std::launch::deferred), fragments).handle_write();
+  else
+    writer_queue.push(std::unique_ptr<pending_write>(new pending_fragment(outfile, comp->compress_async(std::move(current_fragment), std::launch::async), fragments)));
   ++fragment_count;
   current_fragment = {};
 }
 
 void sqsh_writer::enqueue_block(std::shared_ptr<std::vector<uint32_t>> blocks, std::shared_ptr<uint64_t> start)
 {
-  writer_queue.push(std::unique_ptr<pending_write>(new pending_block(outfile, comp->compress_async(std::move(current_block)), blocks, start)));
+  if (single_threaded)
+    writer_failed = writer_failed || pending_block(outfile, comp->compress_async(std::move(current_block), std::launch::deferred), blocks, start).handle_write();
+  else
+    writer_queue.push(std::unique_ptr<pending_write>(new pending_block(outfile, comp->compress_async(std::move(current_block), std::launch::async), blocks, start)));
   current_block = {};
 }
 
@@ -219,6 +225,7 @@ bool sqsh_writer::finish_data()
 {
   flush_fragment();
   writer_queue.finish();
-  thread.join();
+  if (thread.joinable())
+    thread.join();
   return writer_failed;
 }

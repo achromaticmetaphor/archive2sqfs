@@ -20,6 +20,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -32,9 +33,11 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
 
+using namespace std::literals;
+
 static int usage(std::string const & progname)
 {
-  std::cerr << "usage: " << progname << " [--strip=N] [--compressor=<zlib|none>] outfile [infile]" << std::endl;
+  std::cerr << "usage: " << progname << " [--single-thread] [--strip=N] [--compressor=<zlib|none>] outfile [infile]" << std::endl;
   return EINVAL;
 }
 
@@ -68,6 +71,7 @@ static bool proc_prefix_arg(std::string const & prefix, std::string const & arg,
 int main(int argc, char * argv[])
 {
   std::size_t strip = 0;
+  bool single_thread = false;
   int block_log = SQFS_BLOCK_LOG_DEFAULT;
   std::string compressor = COMPRESSOR_DEFAULT;
 
@@ -77,13 +81,15 @@ int main(int argc, char * argv[])
       ;
     else if (proc_prefix_arg("--compressor=", argv[i], [&](auto s) { compressor = s; }))
       ;
+    else if ("--single-thread"s == argv[i])
+      single_thread = true;
     else
       args.push_back(argv[i]);
 
   if (args.size() < 1 || args.size() > 2)
     return usage(argv[0]);
 
-  struct sqsh_writer writer(args[0], block_log, compressor);
+  struct sqsh_writer writer(args[0], block_log, compressor, single_thread);
   archive_reader archive = args.size() > 1 ? archive_reader(args[1]) : archive_reader(stdin);
   std::shared_ptr<dirtree_dir> rootdir = dirtree_dir::create_root_dir(&writer);
   int64_t const block_size = 1 << writer.super.block_log;

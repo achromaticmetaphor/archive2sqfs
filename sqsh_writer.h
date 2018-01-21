@@ -72,6 +72,7 @@ struct sqsh_writer
   std::unordered_map<uint16_t, uint32_t> rids;
 
   std::thread thread;
+  bool single_threaded;
   bounded_work_queue<std::unique_ptr<pending_write>> writer_queue;
   std::shared_ptr<compressor> comp;
   bool writer_failed = false;
@@ -108,11 +109,12 @@ struct sqsh_writer
   bool finish_data();
 
   template <typename P>
-  sqsh_writer(P path, int blog, std::string comptype) : outfile(path, std::ios_base::binary), writer_queue(thread_count()), comp(get_compressor_for(comptype)), dentry_writer(*comp), inode_writer(*comp)
+  sqsh_writer(P path, int blog, std::string comptype, bool disable_threads = false) : outfile(path, std::ios_base::binary), single_threaded(disable_threads), writer_queue(thread_count()), comp(get_compressor_for(comptype)), dentry_writer(*comp), inode_writer(*comp)
   {
     super.block_log = blog;
     outfile.seekp(SQFS_SUPER_SIZE);
-    thread = std::thread(&sqsh_writer::writer_thread, this);
+    if (!single_threaded)
+      thread = std::thread(&sqsh_writer::writer_thread, this);
   }
 
   ~sqsh_writer()
