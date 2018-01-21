@@ -55,9 +55,8 @@ struct dirtable_header
 };
 
 template <typename IT>
-static int dirtree_write_dirtable_segment(struct dirtree * const dt, IT & it)
+static int dirtree_write_dirtable_segment(dirtree_dir & dir, IT & it)
 {
-  dirtree_dir & dir = *static_cast<dirtree_dir *>(dt);
   auto & first = it->second;
   struct dirtable_header header = {0, first->inode_address.block, first->inode_number};
   header.count = header.segment_len(it, dir.entries.cend());
@@ -66,7 +65,7 @@ static int dirtree_write_dirtable_segment(struct dirtree * const dt, IT & it)
   buff.l32(header.count - 1);
   buff.l32(header.start_block);
   buff.l32(header.inode_number);
-  RETIF(dt->wr->dentry_writer.put(buff).error);
+  RETIF(dir.wr->dentry_writer.put(buff).error);
   dir.filesize += buff.size();
 
   for (size_t i = 0; i < header.count; ++i, ++it)
@@ -82,29 +81,28 @@ static int dirtree_write_dirtable_segment(struct dirtree * const dt, IT & it)
       for (auto const c : it->first)
         buff.l8(c);
 
-      RETIF(dt->wr->dentry_writer.put(buff).error);
+      RETIF(dir.wr->dentry_writer.put(buff).error);
       dir.filesize += buff.size();
       if (it->second->inode_type == SQFS_INODE_TYPE_DIR)
-        dt->nlink++;
+        dir.nlink++;
     }
 
   return 0;
 }
 
-static int dirtree_write_dirtable(struct dirtree * const dt)
+static int dirtree_write_dirtable(dirtree_dir & dir)
 {
-  dirtree_dir & dir = *static_cast<dirtree_dir *>(dt);
-  meta_address const addr = dt->wr->dentry_writer.get_address();
+  meta_address const addr = dir.wr->dentry_writer.get_address();
   RETIF(addr.error);
 
   dir.dtable_start_block = addr.block;
   dir.dtable_start_offset = addr.offset;
-  dt->nlink = 2;
+  dir.nlink = 2;
   dir.filesize = 3;
 
   auto it = dir.entries.cbegin();
   while (it != dir.entries.cend())
-    RETIF(dirtree_write_dirtable_segment(dt, it));
+    RETIF(dirtree_write_dirtable_segment(dir, it));
 
   return 0;
 }
@@ -120,33 +118,31 @@ static inline void dirtree_inode_common(struct dirtree * const dt, endian_buffer
   buff.l32(dt->inode_number);
 }
 
-static int dirtree_reg_write_inode_blocks(struct dirtree * const dt)
+static int dirtree_reg_write_inode_blocks(dirtree_reg & reg)
 {
-  dirtree_reg & reg = *static_cast<dirtree_reg *>(dt);
   endian_buffer<0> buff;
   for (auto const b : reg.blocks)
     buff.l32(b);
-  return dt->wr->inode_writer.put(buff).error;
+  return reg.wr->inode_writer.put(buff).error;
 }
 
-static inline void dirtree_write_inode_dir(endian_buffer<40> & buff, struct dirtree * const dt, uint32_t const parent_inode_number)
+static inline void dirtree_write_inode_dir(endian_buffer<40> & buff, dirtree_dir & dir, uint32_t const parent_inode_number)
 {
-  dirtree_dir & dir = *static_cast<dirtree_dir *>(dt);
-  if (dir.filesize > 0xffffu || dt->xattr != 0xffffffffu)
+  if (dir.filesize > 0xffffu || dir.xattr != 0xffffffffu)
     {
-      buff.l32(dt->nlink);
+      buff.l32(dir.nlink);
       buff.l32(dir.filesize);
       buff.l32(dir.dtable_start_block);
       buff.l32(parent_inode_number);
       buff.l16(0);
       buff.l16(dir.dtable_start_offset);
-      buff.l32(dt->xattr);
+      buff.l32(dir.xattr);
     }
   else
     {
-      buff.l16(0, dt->inode_type - 7);
+      buff.l16(0, dir.inode_type - 7);
       buff.l32(dir.dtable_start_block);
-      buff.l32(dt->nlink);
+      buff.l32(dir.nlink);
       buff.l16(dir.filesize);
       buff.l16(dir.dtable_start_offset);
       buff.l32(parent_inode_number);
@@ -182,7 +178,7 @@ int dirtree_reg::write_inode(uint32_t)
   dirtree_inode_reg(buff, *this);
   inode_address = wr->inode_writer.put(buff);
   RETIF(inode_address.error);
-  dirtree_reg_write_inode_blocks(this);
+  dirtree_reg_write_inode_blocks(*this);
   return 0;
 }
 
@@ -191,10 +187,10 @@ int dirtree_dir::write_inode(uint32_t const parent_inode_number)
   for (auto & entry : entries)
     RETIF(entry.second->write_inode(inode_number));
 
-  RETIF(dirtree_write_dirtable(this));
+  RETIF(dirtree_write_dirtable(*this));
   endian_buffer<40> buff;
   dirtree_inode_common(this, buff);
-  dirtree_write_inode_dir(buff, this, parent_inode_number);
+  dirtree_write_inode_dir(buff, *this, parent_inode_number);
   inode_address = wr->inode_writer.put(buff);
   return inode_address.error;
 }
