@@ -23,7 +23,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 
 #include "compressor.h"
-#include "le.h"
+#include "endian_buffer.h"
 #include "mdw.h"
 #include "sqsh_writer.h"
 #include "util.h"
@@ -60,33 +60,33 @@ size_t sqsh_writer::put_fragment()
 
 int sqsh_writer::write_header()
 {
-  uint8_t header[SQFS_SUPER_SIZE];
+  endian_buffer<SQFS_SUPER_SIZE> header;
 
-  le32(header, SQFS_MAGIC);
-  le32(header + 4, next_inode - 1);
-  le32(header + 8, 0);
-  le32(header + 12, 1u << super.block_log);
-  le32(header + 16, fragments.size());
+  header.l32(SQFS_MAGIC);
+  header.l32(next_inode - 1);
+  header.l32(0);
+  header.l32(1u << super.block_log);
+  header.l32(fragments.size());
 
-  le16(header + 20, comp->type);
-  le16(header + 22, super.block_log);
-  le16(header + 24, super.flags);
-  le16(header + 26, ids.size());
-  le16(header + 28, SQFS_MAJOR);
-  le16(header + 30, SQFS_MINOR);
+  header.l16(comp->type);
+  header.l16(super.block_log);
+  header.l16(super.flags);
+  header.l16(ids.size());
+  header.l16(SQFS_MAJOR);
+  header.l16(SQFS_MINOR);
 
-  le64(header + 32, super.root_inode);
-  le64(header + 40, super.bytes_used);
-  le64(header + 48, super.id_table_start);
-  le64(header + 56, super.xattr_table_start);
-  le64(header + 64, super.inode_table_start);
-  le64(header + 72, super.directory_table_start);
-  le64(header + 80, super.fragment_table_start);
-  le64(header + 88, super.lookup_table_start);
+  header.l64(super.root_inode);
+  header.l64(super.bytes_used);
+  header.l64(super.id_table_start);
+  header.l64(super.xattr_table_start);
+  header.l64(super.inode_table_start);
+  header.l64(super.directory_table_start);
+  header.l64(super.fragment_table_start);
+  header.l64(super.lookup_table_start);
 
   RETIF(fround_to(outfile, SQFS_PAD_SIZE));
   outfile.seekp(0);
-  outfile.write(reinterpret_cast<char *>(header), SQFS_SUPER_SIZE);
+  outfile.write(reinterpret_cast<char const *>(header.data()), header.size());
   return outfile.fail();
 }
 
@@ -111,20 +111,18 @@ static constexpr auto ITD_ENTRY_SIZE(T entry_lb)
 template <std::size_t ENTRY_LB, typename G>
 static int sqsh_writer_write_indexed_table(sqsh_writer * wr, std::size_t const count, uint64_t & table_start, G entry)
 {
-  std::size_t const index_count = (count >> ITD_SHIFT(ENTRY_LB)) + ((count & ITD_MASK(ENTRY_LB)) != 0);
-  std::vector<unsigned char> indices(index_count * 8);
+  endian_buffer<0> indices;
   mdw mdw(*wr->comp);
-  std::size_t index = 0;
 
   for (std::size_t i = 0; i < count; ++i)
     {
-      unsigned char buff[ITD_ENTRY_SIZE(ENTRY_LB)];
+      endian_buffer<ITD_ENTRY_SIZE(ENTRY_LB)> buff;
       entry(buff, wr, i);
-      meta_address const maddr = mdw.put(buff, ITD_ENTRY_SIZE(ENTRY_LB));
+      meta_address const maddr = mdw.put(buff);
       RETIF(maddr.error);
 
       if ((i & ITD_MASK(ENTRY_LB)) == 0)
-        le64(indices.data() + index++ * 8, table_start + maddr.block);
+        indices.l64(table_start + maddr.block);
     }
 
   int error = 0;
@@ -138,21 +136,21 @@ static int sqsh_writer_write_indexed_table(sqsh_writer * wr, std::size_t const c
   table_start = tell;
 
   RETIF(error);
-  wr->outfile.write(reinterpret_cast<char *>(indices.data()), indices.size());
+  wr->outfile.write(reinterpret_cast<char const *>(indices.data()), indices.size());
   return wr->outfile.fail();
 }
 
-static inline void sqsh_writer_fragment_table_entry(unsigned char buff[16], struct sqsh_writer * const wr, size_t const i)
+static inline void sqsh_writer_fragment_table_entry(endian_buffer<16> & buff, struct sqsh_writer * const wr, size_t const i)
 {
   fragment_entry const & frag = wr->fragments[i];
-  le64(buff, frag.start_block);
-  le32(buff + 8, frag.size);
-  le32(buff + 12, 0);
+  buff.l64(frag.start_block);
+  buff.l32(frag.size);
+  buff.l32(0);
 }
 
 static int sqsh_writer_write_id_table(sqsh_writer * wr)
 {
-  return sqsh_writer_write_indexed_table<2>(wr, wr->rids.size(), wr->super.id_table_start, [](auto buff, auto wr, auto i) { le32(buff, wr->rids[i]); });
+  return sqsh_writer_write_indexed_table<2>(wr, wr->rids.size(), wr->super.id_table_start, [](auto & buff, auto wr, auto i) { buff.l32(wr->rids[i]); });
 }
 
 static int sqsh_writer_write_fragment_table(sqsh_writer * wr)

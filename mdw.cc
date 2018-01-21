@@ -20,7 +20,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstdint>
 #include <vector>
 
-#include "le.h"
+#include "endian_buffer.h"
 #include "mdw.h"
 #include "sqsh_defs.h"
 
@@ -34,10 +34,10 @@ static inline auto rup(T const a, T const s)
 
 void mdw::write_block_compressed(std::size_t const block_len, unsigned char const * const block, uint16_t const bsize)
 {
-  uint8_t tmp[2];
-  le16(tmp, bsize);
-  table.push_back(tmp[0]);
-  table.push_back(tmp[1]);
+  endian_buffer<2> buff;
+  buff.l16(bsize);
+  table.push_back(buff[0]);
+  table.push_back(buff[1]);
 
   for (std::size_t i = 0; i < block_len; ++i)
     table.push_back(block[i]);
