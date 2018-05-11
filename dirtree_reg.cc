@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2016, 2017  Charles Cagle
+Copyright (C) 2016, 2017, 2018  Charles Cagle
 
 This file is part of archive2sqfs.
 
@@ -24,7 +24,6 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "dirtree.h"
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
-#include "util.h"
 
 void dirtree_reg::flush()
 {

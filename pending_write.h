@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2017  Charles Cagle
+Copyright (C) 2017, 2018  Charles Cagle
 
 This file is part of archive2sqfs.
 
@@ -23,37 +23,32 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <fstream>
 #include <future>
 #include <memory>
+#include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
+using namespace std::literals;
+
 #include "compressor.h"
 #include "fragment_entry.h"
-#include "optional.h"
-#include "util.h"
 
 struct pending_write
 {
   std::ofstream & out;
-  std::future<optional<compression_result>> future;
+  std::future<compression_result> future;
 
-  pending_write(std::ofstream & out, std::future<optional<compression_result>> && future) : out(out), future(std::move(future)) {}
+  pending_write(std::ofstream & out, std::future<compression_result> && future) : out(out), future(std::move(future)) {}
   virtual ~pending_write() = default;
 
   virtual void report(uint64_t, uint32_t, bool) = 0;
 
-  int handle_write()
+  void handle_write()
   {
     auto const tell = out.tellp();
-    RETIF(tell == decltype(tell)(-1));
-
     auto result = future.get();
-    RETIF(!result);
-
-    out.write(reinterpret_cast<char *>(result->block.data()), result->block.size());
-    RETIF(out.fail());
-
-    report(tell, result->block.size(), result->compressed);
-    return 0;
+    out.write(reinterpret_cast<char *>(result.block.data()), result.block.size());
+    report(tell, result.block.size(), result.compressed);
   }
 };
 
@@ -61,7 +56,7 @@ struct pending_fragment : public pending_write
 {
   std::vector<fragment_entry> & fragments;
 
-  pending_fragment(std::ofstream & out, std::future<optional<compression_result>> && future, std::vector<fragment_entry> & frags) : pending_write(out, std::move(future)), fragments(frags) {}
+  pending_fragment(std::ofstream & out, std::future<compression_result> && future, std::vector<fragment_entry> & frags) : pending_write(out, std::move(future)), fragments(frags) {}
 
   virtual void report(uint64_t start, uint32_t size, bool compressed)
   {
@@ -74,7 +69,7 @@ struct pending_block : public pending_write
   std::shared_ptr<std::vector<uint32_t>> sizes;
   std::shared_ptr<uint64_t> start_block;
 
-  pending_block(std::ofstream & out, std::future<optional<compression_result>> && future, std::shared_ptr<std::vector<uint32_t>> sizes, std::shared_ptr<uint64_t> start) : pending_write(out, std::move(future)), sizes(sizes), start_block(start) {}
+  pending_block(std::ofstream & out, std::future<compression_result> && future, std::shared_ptr<std::vector<uint32_t>> sizes, std::shared_ptr<uint64_t> start) : pending_write(out, std::move(future)), sizes(sizes), start_block(start) {}
 
   virtual void report(uint64_t start, uint32_t size, bool compressed)
   {

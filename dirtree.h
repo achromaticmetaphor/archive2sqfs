@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2016, 2017  Charles Cagle
+Copyright (C) 2016, 2017, 2018  Charles Cagle
 
 This file is part of archive2sqfs.
 
@@ -56,8 +56,8 @@ struct dirtree : public std::enable_shared_from_this<dirtree>
 
   void dump_tree() const { dump_tree("."); }
 
-  virtual int write_inode(uint32_t) = 0;
-  int write_tables();
+  virtual void write_inode(uint32_t) = 0;
+  void write_tables();
 
   virtual ~dirtree() = default;
 };
@@ -71,7 +71,7 @@ struct dirtree_ipc : public dirtree
     std::cout << path << (inode_type == SQFS_INODE_TYPE_PIPE ? "|" : "=") << std::endl;
   }
 
-  virtual int write_inode(uint32_t);
+  virtual void write_inode(uint32_t);
 };
 
 struct dirtree_reg : public dirtree
@@ -97,7 +97,7 @@ struct dirtree_reg : public dirtree
 
   void append(unsigned char const *, std::size_t);
   void flush();
-  virtual int write_inode(uint32_t);
+  virtual void write_inode(uint32_t);
 
   template <typename T>
   void append(T & con)
@@ -117,7 +117,7 @@ struct dirtree_sym : public dirtree
     std::cout << path << "@ -> " << target << std::endl;
   }
 
-  virtual int write_inode(uint32_t);
+  virtual void write_inode(uint32_t);
 };
 
 struct dirtree_dev : public dirtree
@@ -131,7 +131,7 @@ struct dirtree_dev : public dirtree
     std::cout << path << (inode_type == SQFS_INODE_TYPE_BLK ? "[]" : "''") << std::endl;
   }
 
-  virtual int write_inode(uint32_t);
+  virtual void write_inode(uint32_t);
 };
 
 struct dirtree_dir : public dirtree
@@ -163,7 +163,7 @@ struct dirtree_dir : public dirtree
   }
 
   std::shared_ptr<dirtree_dir> get_subdir(std::string const &);
-  virtual int write_inode(uint32_t);
+  virtual void write_inode(uint32_t);
   std::shared_ptr<dirtree_dir> subdir_for_path(std::string const &);
   void put_file(std::string const &, std::shared_ptr<dirtree>);
 };

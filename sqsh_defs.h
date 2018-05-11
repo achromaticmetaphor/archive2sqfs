@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2016, 2017  Charles Cagle
+Copyright (C) 2016, 2017, 2018  Charles Cagle
 
 This file is part of archive2sqfs.
 
@@ -56,11 +56,9 @@ struct meta_address
 {
   uint32_t block;
   uint16_t offset;
-  uint16_t error;
 
-  meta_address() : block(0), offset(0), error(0) {}
-  meta_address(uint16_t e) : block(0), offset(0), error(e) {}
-  meta_address(uint32_t b, uint16_t o) : block(b), offset(o), error(0) {}
+  meta_address() : block(0), offset(0) {}
+  meta_address(uint32_t b, uint16_t o) : block(b), offset(o) {}
 
   operator uint64_t() const
   {

@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2016, 2017  Charles Cagle
+Copyright (C) 2016, 2017, 2018  Charles Cagle
 
 This file is part of archive2sqfs.
 
@@ -31,10 +31,9 @@ struct mdw
   std::vector<unsigned char> table;
   std::vector<unsigned char> buff;
 
-  bool out(std::ostream & out)
+  void out(std::ostream & out)
   {
     out.write(reinterpret_cast<char *>(table.data()), table.size());
-    return out.fail();
   }
 
   meta_address get_address()
@@ -43,8 +42,8 @@ struct mdw
   }
 
   void write_block_compressed(std::size_t, unsigned char const *, uint16_t);
-  bool write_block_no_pad(void);
-  bool write_block(void);
+  void write_block_no_pad(void);
+  void write_block(void);
   meta_address put(unsigned char const *, size_t);
 
   template <typename C>

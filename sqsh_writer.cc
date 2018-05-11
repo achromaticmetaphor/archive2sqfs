@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2016, 2017  Charles Cagle
+Copyright (C) 2016, 2017, 2018  Charles Cagle
 
 This file is part of archive2sqfs.
 
@@ -26,18 +26,16 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "endian_buffer.h"
 #include "mdw.h"
 #include "sqsh_writer.h"
-#include "util.h"
 
-static int fround_to(std::ostream & f, long int const block)
+#define MASK_LOW(N) (~((~0u) << (N)))
+
+static void fround_to(std::ostream & f, long int const block)
 {
   auto const tell = f.tellp();
-  if (tell == decltype(tell)(-1))
-    return 1;
 
   std::size_t const fill = block - (tell % block);
   for (std::size_t i = 0; i < fill; ++i)
     f << '\0';
-  return f.fail();
 }
 
 void sqsh_writer::flush_fragment()
@@ -58,7 +56,7 @@ size_t sqsh_writer::put_fragment()
   return offset;
 }
 
-int sqsh_writer::write_header()
+void sqsh_writer::write_header()
 {
   endian_buffer<SQFS_SUPER_SIZE> header;
 
@@ -84,10 +82,9 @@ int sqsh_writer::write_header()
   header.l64(super.fragment_table_start);
   header.l64(super.lookup_table_start);
 
-  RETIF(fround_to(outfile, SQFS_PAD_SIZE));
+  fround_to(outfile, SQFS_PAD_SIZE);
   outfile.seekp(0);
   outfile.write(reinterpret_cast<char const *>(header.data()), header.size());
-  return outfile.fail();
 }
 
 template <typename T>
@@ -109,96 +106,77 @@ static constexpr auto ITD_ENTRY_SIZE(T entry_lb)
 }
 
 template <std::size_t ENTRY_LB, typename G>
-static int sqsh_writer_write_indexed_table(sqsh_writer * wr, std::size_t const count, uint64_t & table_start, G entry)
+static void sqsh_writer_write_indexed_table(sqsh_writer & wr, std::size_t const count, uint64_t & table_start, G entry)
 {
   endian_buffer<0> indices;
-  mdw mdw(*wr->comp);
+  mdw mdw(*wr.comp);
 
   for (std::size_t i = 0; i < count; ++i)
     {
       endian_buffer<ITD_ENTRY_SIZE(ENTRY_LB)> buff;
       entry(buff, wr, i);
       meta_address const maddr = mdw.put(buff);
-      RETIF(maddr.error);
 
       if ((i & ITD_MASK(ENTRY_LB)) == 0)
         indices.l64(table_start + maddr.block);
     }
 
-  int error = 0;
   if (count & ITD_MASK(ENTRY_LB))
     mdw.write_block_no_pad();
 
-  error = error || mdw.out(wr->outfile);
+  mdw.out(wr.outfile);
+  table_start = wr.outfile.tellp();
 
-  auto const tell = wr->outfile.tellp();
-  error = error || tell == decltype(tell)(-1);
-  table_start = tell;
-
-  RETIF(error);
-  wr->outfile.write(reinterpret_cast<char const *>(indices.data()), indices.size());
-  return wr->outfile.fail();
+  wr.outfile.write(reinterpret_cast<char const *>(indices.data()), indices.size());
 }
 
-static inline void sqsh_writer_fragment_table_entry(endian_buffer<16> & buff, struct sqsh_writer * const wr, size_t const i)
+static inline void sqsh_writer_fragment_table_entry(endian_buffer<16> & buff, sqsh_writer & wr, size_t const i)
 {
-  fragment_entry const & frag = wr->fragments[i];
+  fragment_entry const & frag = wr.fragments[i];
   buff.l64(frag.start_block);
   buff.l32(frag.size);
   buff.l32(0);
 }
 
-static int sqsh_writer_write_id_table(sqsh_writer * wr)
+static void sqsh_writer_write_id_table(sqsh_writer & wr)
 {
-  return sqsh_writer_write_indexed_table<2>(wr, wr->rids.size(), wr->super.id_table_start, [](auto & buff, auto wr, auto i) { buff.l32(wr->rids[i]); });
+  sqsh_writer_write_indexed_table<2>(wr, wr.rids.size(), wr.super.id_table_start, [](auto & buff, auto & wr, auto i) { buff.l32(wr.rids[i]); });
 }
 
-static int sqsh_writer_write_fragment_table(sqsh_writer * wr)
+static void sqsh_writer_write_fragment_table(sqsh_writer & wr)
 {
-  return sqsh_writer_write_indexed_table<4>(wr, wr->fragments.size(), wr->super.fragment_table_start, sqsh_writer_fragment_table_entry);
+  sqsh_writer_write_indexed_table<4>(wr, wr.fragments.size(), wr.super.fragment_table_start, sqsh_writer_fragment_table_entry);
 }
 
-static int sqsh_writer_write_inode_table(struct sqsh_writer * const wr)
+static void sqsh_writer_write_inode_table(sqsh_writer & wr)
 {
-  return wr->inode_writer.out(wr->outfile);
+  wr.inode_writer.out(wr.outfile);
 }
 
-static int sqsh_writer_write_directory_table(struct sqsh_writer * const wr)
+static void sqsh_writer_write_directory_table(sqsh_writer & wr)
 {
-  return wr->dentry_writer.out(wr->outfile);
+  wr.dentry_writer.out(wr.outfile);
 }
 
-static inline void tell_wr(struct sqsh_writer * const wr, int & error, uint64_t & start, int (*cb)(struct sqsh_writer *))
+void sqsh_writer::write_tables()
 {
-  auto const tell = wr->outfile.tellp();
-  error = error || tell == decltype(tell)(-1);
-  start = tell;
-  error = error || cb(wr);
-}
+#define TELL_WR(T)                         \
+  super.T##_table_start = outfile.tellp(); \
+  sqsh_writer_write_##T##_table(*this);
 
-int sqsh_writer::write_tables()
-{
-  int error = 0;
-
-#define TELL_WR(T) tell_wr(this, error, super.T##_table_start, sqsh_writer_write_##T##_table)
   TELL_WR(inode);
   TELL_WR(directory);
   TELL_WR(fragment);
   TELL_WR(id);
 #undef TELL_WR
-
-  long int const tell = outfile.tellp();
-  error = error || tell == decltype(tell)(-1);
-  super.bytes_used = tell;
-
-  return error;
+  super.bytes_used = outfile.tellp();
 }
 
 void sqsh_writer::enqueue_fragment()
 {
   if (single_threaded)
-    writer_failed = writer_failed || pending_fragment(outfile, comp->compress_async(std::move(current_fragment), std::launch::deferred), fragments).handle_write();
-  else
+    pending_fragment(outfile, comp->compress_async(std::move(current_fragment), std::launch::deferred), fragments).handle_write();
+  else if (!writer_failed)
     writer_queue.push(std::unique_ptr<pending_write>(new pending_fragment(outfile, comp->compress_async(std::move(current_fragment), std::launch::async), fragments)));
   ++fragment_count;
   current_fragment = {};
@@ -207,18 +185,24 @@ void sqsh_writer::enqueue_fragment()
 void sqsh_writer::enqueue_block(std::shared_ptr<std::vector<uint32_t>> blocks, std::shared_ptr<uint64_t> start)
 {
   if (single_threaded)
-    writer_failed = writer_failed || pending_block(outfile, comp->compress_async(std::move(current_block), std::launch::deferred), blocks, start).handle_write();
-  else
+    pending_block(outfile, comp->compress_async(std::move(current_block), std::launch::deferred), blocks, start).handle_write();
+  else if (!writer_failed)
     writer_queue.push(std::unique_ptr<pending_write>(new pending_block(outfile, comp->compress_async(std::move(current_block), std::launch::async), blocks, start)));
   current_block = {};
 }
 
 void sqsh_writer::writer_thread()
 {
-  bool failed = false;
   for (auto option = writer_queue.pop(); option; option = writer_queue.pop())
-    failed = failed || (*option)->handle_write();
-  writer_failed = failed;
+    try
+      {
+        if (!writer_failed)
+          (*option)->handle_write();
+      }
+    catch (...)
+      {
+        writer_failed = true;
+      }
 }
 
 bool sqsh_writer::finish_data()

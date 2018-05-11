@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2016, 2017  Charles Cagle
+Copyright (C) 2016, 2017, 2018  Charles Cagle
 
 This file is part of archive2sqfs.
 
@@ -25,7 +25,6 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <utility>
 #include <vector>
 
-#include "optional.h"
 #include "sqsh_defs.h"
 
 using block_type = std::vector<unsigned char>;
@@ -39,10 +38,10 @@ struct compression_result
 struct compressor
 {
   uint16_t const type;
-  virtual optional<compression_result> compress(block_type &&) = 0;
+  virtual compression_result compress(block_type &&) = 0;
   virtual ~compressor() = default;
 
-  std::future<optional<compression_result>> compress_async(block_type && in, std::launch const policy = std::launch::async)
+  std::future<compression_result> compress_async(block_type && in, std::launch const policy = std::launch::async)
   {
     return std::async(policy, &compressor::compress, this, std::move(in));
   }
@@ -52,13 +51,13 @@ struct compressor
 
 struct compressor_zlib : public compressor
 {
-  virtual optional<compression_result> compress(block_type &&);
+  virtual compression_result compress(block_type &&);
   compressor_zlib() : compressor(SQFS_COMPRESSION_TYPE_ZLIB) {}
 };
 
 struct compressor_none : public compressor
 {
-  virtual optional<compression_result> compress(block_type && in) { return {{std::move(in), false}}; }
+  virtual compression_result compress(block_type && in) { return {std::move(in), false}; }
   compressor_none() : compressor(SQFS_COMPRESSION_TYPE_ZLIB) {}
 };
 

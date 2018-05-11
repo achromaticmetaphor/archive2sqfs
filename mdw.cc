@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2016, 2017  Charles Cagle
+Copyright (C) 2016, 2017, 2018  Charles Cagle
 
 This file is part of archive2sqfs.
 
@@ -43,27 +43,22 @@ void mdw::write_block_compressed(std::size_t const block_len, unsigned char cons
     table.push_back(block[i]);
 }
 
-bool mdw::write_block_no_pad(void)
+void mdw::write_block_no_pad(void)
 {
   if (buff.empty())
-    return false;
+    return;
 
-  auto comp_opt = comp.compress(block_type{buff});
-  if (!comp_opt)
-    return true;
-
-  auto const size = comp_opt->block.size();
-  write_block_compressed(size, comp_opt->block.data(), comp_opt->compressed ? size : (size | SQFS_META_BLOCK_COMPRESSED_BIT));
+  auto comp_res = comp.compress(block_type{buff});
+  auto const size = comp_res.block.size();
+  write_block_compressed(size, comp_res.block.data(), comp_res.compressed ? size : (size | SQFS_META_BLOCK_COMPRESSED_BIT));
   buff.clear();
-
-  return false;
 }
 
-bool mdw::write_block(void)
+void mdw::write_block(void)
 {
   while (buff.size() < SQFS_META_BLOCK_SIZE)
     buff.push_back(0);
-  return write_block_no_pad();
+  write_block_no_pad();
 }
 
 meta_address mdw::put(unsigned char const * b, std::size_t len)
@@ -78,8 +73,7 @@ meta_address mdw::put(unsigned char const * b, std::size_t len)
       for (std::size_t i = 0; i < added; ++i)
         buff.push_back(b[i]);
       if (buff.size() == SQFS_META_BLOCK_SIZE)
-        if (write_block())
-          return 1;
+        write_block();
 
       len -= added;
       b += added;

@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2016, 2017  Charles Cagle
+Copyright (C) 2016, 2017, 2018  Charles Cagle
 
 This file is part of archive2sqfs.
 
@@ -19,6 +19,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef LSL_SQSH_WRITER_H
 #define LSL_SQSH_WRITER_H
 
+#include <atomic>
 #include <cstdint>
 #include <fstream>
 #include <memory>
@@ -32,7 +33,6 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "mdw.h"
 #include "pending_write.h"
 #include "sqsh_defs.h"
-#include "util.h"
 
 #define SQFS_BLOCK_LOG_DEFAULT 17
 
@@ -75,7 +75,7 @@ struct sqsh_writer
   bool single_threaded;
   bounded_work_queue<std::unique_ptr<pending_write>> writer_queue;
   std::shared_ptr<compressor> comp;
-  bool writer_failed = false;
+  std::atomic<bool> writer_failed{false};
 
   struct mdw dentry_writer;
   struct mdw inode_writer;
@@ -99,10 +99,10 @@ struct sqsh_writer
     return next_inode++;
   }
 
-  int write_header();
+  void write_header();
   size_t put_fragment();
   void flush_fragment();
-  int write_tables();
+  void write_tables();
   void enqueue_block(std::shared_ptr<std::vector<uint32_t>>, std::shared_ptr<uint64_t>);
   void enqueue_fragment();
   void writer_thread();
@@ -112,6 +112,7 @@ struct sqsh_writer
   sqsh_writer(P path, int blog, std::string comptype, bool disable_threads = false) : outfile(path, std::ios_base::binary), single_threaded(disable_threads), writer_queue(thread_count()), comp(get_compressor_for(comptype)), dentry_writer(*comp), inode_writer(*comp)
   {
     super.block_log = blog;
+    outfile.exceptions(std::ios_base::failbit);
     outfile.seekp(SQFS_SUPER_SIZE);
     if (!single_threaded)
       thread = std::thread(&sqsh_writer::writer_thread, this);

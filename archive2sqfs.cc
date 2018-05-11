@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2016, 2017  Charles Cagle
+Copyright (C) 2016, 2017, 2018  Charles Cagle
 
 This file is part of archive2sqfs.
 
@@ -93,9 +93,8 @@ int main(int argc, char * argv[])
   archive_reader archive = args.size() > 1 ? archive_reader(args[1]) : archive_reader(stdin);
   std::shared_ptr<dirtree_dir> rootdir = dirtree_dir::create_root_dir(&writer);
   int64_t const block_size = 1 << writer.super.block_log;
-  bool failed = false;
 
-  while (!failed && archive.next())
+  while (archive.next())
     {
       char const * const pathname = strip_path(strip, archive_entry_pathname(archive.entry));
       auto const filetype = archive_entry_filetype(archive.entry);
@@ -122,14 +121,14 @@ int main(int argc, char * argv[])
               rootdir->put_file(pathname, reg);
 
               int64_t i;
-              for (i = archive_entry_size(archive.entry); i >= block_size && !failed; i -= block_size)
+              for (i = archive_entry_size(archive.entry); i >= block_size; i -= block_size)
                 {
-                  failed = failed || archive.read(buff, block_size) != block_size;
+                  archive.read(buff, block_size);
                   reg->append(buff);
                 }
-              if (i > 0 && !failed)
+              if (i > 0)
                 {
-                  failed = failed || archive.read(buff, i) != i;
+                  archive.read(buff, i);
                   reg->append(buff);
                 }
 
@@ -156,16 +155,12 @@ int main(int argc, char * argv[])
           case AE_IFIFO:
             rootdir->put_file(pathname, std::make_shared<dirtree_ipc>(&writer, SQFS_INODE_TYPE_PIPE, mode, uid, gid, mtime));
             break;
-
-          default:
-            failed = true;
         }
     }
 
-  failed = failed || archive.fail;
-  failed = failed || writer.finish_data();
-  failed = failed || rootdir->write_tables();
-  failed = failed || writer.write_header();
+  bool failed = writer.finish_data();
+  rootdir->write_tables();
+  writer.write_header();
 
   return failed;
 }

@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2017  Charles Cagle
+Copyright (C) 2017, 2018  Charles Cagle
 
 This file is part of archive2sqfs.
 
@@ -20,6 +20,10 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #define LSL_ARCHIVE_READER_H
 
 #include <cstddef>
+#include <stdexcept>
+#include <string>
+
+using namespace std::literals;
 
 #include <archive.h>
 #include <archive_entry.h>
@@ -27,7 +31,6 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 class archive_reader
 {
 public:
-  bool fail;
   struct archive_entry * entry;
 
   archive_reader(char const *);
@@ -37,9 +40,9 @@ public:
   ~archive_reader();
 
   bool next();
-  auto read(void *, std::size_t);
+  void read(void *, std::size_t);
   template <typename T>
-  auto read(T &, std::size_t);
+  void read(T &, std::size_t);
 
 private:
   struct archive * reader;
@@ -52,12 +55,18 @@ static std::size_t const reader_blocksize = 10240;
 archive_reader::archive_reader()
 {
   reader = archive_read_new();
-  fail = reader == nullptr || archive_read_support_filter_all(reader) != ARCHIVE_OK || archive_read_support_format_all(reader) != ARCHIVE_OK;
+  if (reader == nullptr)
+    throw std::runtime_error("failed to initialize reader object"s);
+  if (archive_read_support_filter_all(reader) != ARCHIVE_OK)
+    throw std::runtime_error("failed to enable all input filters"s);
+  if (archive_read_support_format_all(reader) != ARCHIVE_OK)
+    throw std::runtime_error("failed to enable all input formats"s);
 }
 
 archive_reader::archive_reader(char const * const pathname) : archive_reader()
 {
-  fail = fail || archive_read_open_filename(reader, pathname, reader_blocksize) != ARCHIVE_OK;
+  if (archive_read_open_filename(reader, pathname, reader_blocksize) != ARCHIVE_OK)
+    throw std::runtime_error("failed to open named archive"s);
 }
 
 template <typename S>
@@ -65,7 +74,8 @@ archive_reader::archive_reader(S pathname) : archive_reader(pathname.data()) {}
 
 archive_reader::archive_reader(std::FILE * const handle) : archive_reader()
 {
-  fail = fail || archive_read_open_FILE(reader, handle) != ARCHIVE_OK;
+  if (archive_read_open_FILE(reader, handle) != ARCHIVE_OK)
+    throw std::runtime_error("failed to open archive by handle"s);
 }
 
 archive_reader::~archive_reader()
@@ -76,25 +86,23 @@ archive_reader::~archive_reader()
 
 bool archive_reader::next()
 {
-  if (fail)
-    return false;
-
   auto const result = archive_read_next_header(reader, &entry);
   if (result == ARCHIVE_FATAL)
-    fail = true;
+    throw std::runtime_error("fatal error in archive_read_next_header()"s);
   return result == ARCHIVE_OK;
 }
 
-auto archive_reader::read(void * const buff, std::size_t const len)
+void archive_reader::read(void * const buff, std::size_t const len)
 {
-  return archive_read_data(reader, buff, len);
+  if (archive_read_data(reader, buff, len) != len)
+    throw std::runtime_error("failed to read data from archive"s);
 }
 
 template <typename T>
-auto archive_reader::read(T & con, std::size_t const len)
+void archive_reader::read(T & con, std::size_t const len)
 {
   con.resize(len);
-  return read(con.data(), len);
+  read(con.data(), len);
 }
 
 #endif
