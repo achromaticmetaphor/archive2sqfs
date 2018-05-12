@@ -76,18 +76,15 @@ struct dirtree_ipc : public dirtree
 
 struct dirtree_reg : public dirtree
 {
-  uint64_t start_block;
   uint64_t file_size;
   uint64_t sparse;
   uint32_t fragment;
   uint32_t offset;
 
-  std::vector<uint32_t> blocks;
   std::size_t block_count;
 
   dirtree_reg(sqsh_writer * wr, uint16_t mode = 0644, uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0) : dirtree(wr, SQFS_INODE_TYPE_REG, mode, uid, gid, mtime)
   {
-    start_block = 0;
     file_size = 0;
     sparse = 0;
     fragment = SQFS_FRAGMENT_NONE;

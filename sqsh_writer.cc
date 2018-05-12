@@ -182,12 +182,12 @@ void sqsh_writer::enqueue_fragment()
   current_fragment = {};
 }
 
-void sqsh_writer::enqueue_block(std::shared_ptr<std::vector<uint32_t>> blocks, std::shared_ptr<uint64_t> start)
+void sqsh_writer::enqueue_block(uint32_t inode_number)
 {
   if (single_threaded)
-    pending_block(outfile, comp->compress_async(std::move(current_block), std::launch::deferred), blocks, start).handle_write();
+    pending_block(outfile, comp->compress_async(std::move(current_block), std::launch::deferred), inode_number, reports).handle_write();
   else if (!writer_failed)
-    writer_queue.push(std::unique_ptr<pending_write>(new pending_block(outfile, comp->compress_async(std::move(current_block), std::launch::async), blocks, start)));
+    writer_queue.push(std::unique_ptr<pending_write>(new pending_block(outfile, comp->compress_async(std::move(current_block), std::launch::async), inode_number, reports)));
   current_block = {};
 }
 

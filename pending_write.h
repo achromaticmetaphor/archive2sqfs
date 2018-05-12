@@ -25,6 +25,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -32,6 +33,12 @@ using namespace std::literals;
 
 #include "compressor.h"
 #include "fragment_entry.h"
+
+struct block_report
+{
+  uint64_t start_block;
+  std::vector<uint32_t> sizes;
+};
 
 struct pending_write
 {
@@ -66,16 +73,17 @@ struct pending_fragment : public pending_write
 
 struct pending_block : public pending_write
 {
-  std::shared_ptr<std::vector<uint32_t>> sizes;
-  std::shared_ptr<uint64_t> start_block;
+  uint32_t inode_number;
+  std::unordered_map<uint32_t, block_report> & reports;
 
-  pending_block(std::ofstream & out, std::future<compression_result> && future, std::shared_ptr<std::vector<uint32_t>> sizes, std::shared_ptr<uint64_t> start) : pending_write(out, std::move(future)), sizes(sizes), start_block(start) {}
+  pending_block(std::ofstream & out, std::future<compression_result> && future, uint32_t inode_number, std::unordered_map<uint32_t, block_report> & reports) : pending_write(out, std::move(future)), inode_number(inode_number), reports(reports) {}
 
   virtual void report(uint64_t start, uint32_t size, bool compressed)
   {
-    if (sizes->empty())
-      *start_block = start;
-    sizes->push_back(size | (compressed ? 0 : SQFS_BLOCK_COMPRESSED_BIT));
+    auto & report = reports[inode_number];
+    if (report.sizes.empty())
+      report.start_block = start;
+    report.sizes.push_back(size | (compressed ? 0 : SQFS_BLOCK_COMPRESSED_BIT));
   }
 };
 

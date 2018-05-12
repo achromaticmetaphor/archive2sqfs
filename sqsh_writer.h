@@ -70,6 +70,7 @@ struct sqsh_writer
   uint32_t fragment_count = 0;
   std::unordered_map<uint32_t, uint16_t> ids;
   std::unordered_map<uint16_t, uint32_t> rids;
+  std::unordered_map<uint32_t, block_report> reports;
 
   std::thread thread;
   bool single_threaded;
@@ -103,7 +104,7 @@ struct sqsh_writer
   size_t put_fragment();
   void flush_fragment();
   void write_tables();
-  void enqueue_block(std::shared_ptr<std::vector<uint32_t>>, std::shared_ptr<uint64_t>);
+  void enqueue_block(uint32_t);
   void enqueue_fragment();
   void writer_thread();
   bool finish_data();

@@ -120,7 +120,7 @@ static inline void dirtree_inode_common(struct dirtree * const dt, endian_buffer
 static void dirtree_reg_write_inode_blocks(dirtree_reg & reg)
 {
   endian_buffer<0> buff;
-  for (auto const b : reg.blocks)
+  for (auto const b : reg.wr->reports[reg.inode_number].sizes)
     buff.l32(b);
   reg.wr->inode_writer.put(buff);
 }
@@ -150,9 +150,10 @@ static inline void dirtree_write_inode_dir(endian_buffer<40> & buff, dirtree_dir
 
 static inline void dirtree_inode_reg(endian_buffer<56> & buff, dirtree_reg & reg)
 {
-  if (reg.start_block > 0xffffu || reg.file_size > 0xffffu || reg.xattr != 0xffffffffu || reg.nlink != 1)
+  auto const start_block = reg.wr->reports[reg.inode_number].start_block;
+  if (start_block > 0xffffu || reg.file_size > 0xffffu || reg.xattr != 0xffffffffu || reg.nlink != 1)
     {
-      buff.l64(reg.start_block);
+      buff.l64(start_block);
       buff.l64(reg.file_size);
       buff.l64(reg.sparse);
       buff.l32(reg.nlink);
@@ -163,7 +164,7 @@ static inline void dirtree_inode_reg(endian_buffer<56> & buff, dirtree_reg & reg
   else
     {
       buff.l16(0, reg.inode_type - 7);
-      buff.l32(reg.start_block);
+      buff.l32(start_block);
       buff.l32(reg.fragment);
       buff.l32(reg.offset);
       buff.l32(reg.file_size);

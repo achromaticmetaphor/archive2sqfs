@@ -38,8 +38,7 @@ void dirtree_reg::flush()
     }
   else
     {
-      auto const shared_this = shared_from_this();
-      wr->enqueue_block(std::shared_ptr<decltype(blocks)>(shared_this, &blocks), std::shared_ptr<decltype(start_block)>(shared_this, &start_block));
+      wr->enqueue_block(inode_number);
       ++block_count;
     }
 }
