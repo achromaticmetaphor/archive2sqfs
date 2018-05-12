@@ -29,7 +29,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
 
-struct dirtree : public std::enable_shared_from_this<dirtree>
+struct dirtree
 {
   uint16_t inode_type;
   uint16_t mode;
@@ -133,7 +133,7 @@ struct dirtree_dev : public dirtree
 
 struct dirtree_dir : public dirtree
 {
-  std::map<std::string, std::shared_ptr<dirtree>> entries;
+  std::map<std::string, std::unique_ptr<dirtree>> entries;
   uint32_t filesize;
   uint32_t dtable_start_block;
   uint16_t dtable_start_offset;
@@ -147,22 +147,21 @@ struct dirtree_dir : public dirtree
       entry.second->dump_tree(path + (entry.second->inode_type == SQFS_INODE_TYPE_DIR ? "/" : "\t") + entry.first);
   }
 
-  static std::shared_ptr<dirtree_dir> create_root_dir(sqsh_writer * const wr)
+  dirtree & put_child(std::string const & name, std::unique_ptr<dirtree> && child)
   {
-    auto const raw_root = new dirtree_dir(wr);
-    auto const shared_root = std::shared_ptr<dirtree>(raw_root);
-    return std::shared_ptr<dirtree_dir>(shared_root, raw_root);
+    return *(entries[name] = std::move(child));
   }
 
-  void put_child(std::string const & name, std::shared_ptr<dirtree> child)
-  {
-    entries[name] = child;
-  }
-
-  std::shared_ptr<dirtree_dir> get_subdir(std::string const &);
+  dirtree_dir & get_subdir(std::string const &);
   virtual void write_inode(uint32_t);
-  std::shared_ptr<dirtree_dir> subdir_for_path(std::string const &);
-  void put_file(std::string const &, std::shared_ptr<dirtree>);
+  dirtree_dir & subdir_for_path(std::string const &);
+  dirtree & put_file(std::string const &, std::unique_ptr<dirtree> &&);
+
+  template <typename T, typename... A>
+  T & put_file(std::string const & name, A... a)
+  {
+    return static_cast<T &>(put_file(name, std::make_unique<T>(wr, a...)));
+  }
 };
 
 #endif

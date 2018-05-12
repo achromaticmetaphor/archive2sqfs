@@ -91,7 +91,7 @@ int main(int argc, char * argv[])
 
   struct sqsh_writer writer(args[0], block_log, compressor, single_thread);
   archive_reader archive = args.size() > 1 ? archive_reader(args[1]) : archive_reader(stdin);
-  std::shared_ptr<dirtree_dir> rootdir = dirtree_dir::create_root_dir(&writer);
+  dirtree_dir rootdir(&writer);
   int64_t const block_size = 1 << writer.super.block_log;
 
   while (archive.next())
@@ -106,60 +106,59 @@ int main(int argc, char * argv[])
         {
           case AE_IFDIR:
             {
-              auto dir = rootdir->subdir_for_path(pathname);
-              dir->mode = mode;
-              dir->uid = uid;
-              dir->gid = gid;
-              dir->mtime = mtime;
+              auto & dir = rootdir.subdir_for_path(pathname);
+              dir.mode = mode;
+              dir.uid = uid;
+              dir.gid = gid;
+              dir.mtime = mtime;
             }
             break;
 
           case AE_IFREG:
             {
               std::vector<unsigned char> buff;
-              auto reg = std::make_shared<dirtree_reg>(&writer, mode, uid, gid, mtime);
-              rootdir->put_file(pathname, reg);
+              auto & reg = rootdir.put_file<dirtree_reg>(pathname, mode, uid, gid, mtime);
 
               int64_t i;
               for (i = archive_entry_size(archive.entry); i >= block_size; i -= block_size)
                 {
                   archive.read(buff, block_size);
-                  reg->append(buff);
+                  reg.append(buff);
                 }
               if (i > 0)
                 {
                   archive.read(buff, i);
-                  reg->append(buff);
+                  reg.append(buff);
                 }
 
-              reg->flush();
+              reg.flush();
             }
             break;
 
           case AE_IFLNK:
-            rootdir->put_file(pathname, std::make_shared<dirtree_sym>(&writer, archive_entry_symlink(archive.entry), mode, uid, gid, mtime));
+            rootdir.put_file<dirtree_sym>(pathname, archive_entry_symlink(archive.entry), mode, uid, gid, mtime);
             break;
 
           case AE_IFBLK:
-            rootdir->put_file(pathname, std::make_shared<dirtree_dev>(&writer, SQFS_INODE_TYPE_BLK, archive_entry_rdev(archive.entry), mode, uid, gid, mtime));
+            rootdir.put_file<dirtree_dev>(pathname, SQFS_INODE_TYPE_BLK, archive_entry_rdev(archive.entry), mode, uid, gid, mtime);
             break;
 
           case AE_IFCHR:
-            rootdir->put_file(pathname, std::make_shared<dirtree_dev>(&writer, SQFS_INODE_TYPE_CHR, archive_entry_rdev(archive.entry), mode, uid, gid, mtime));
+            rootdir.put_file<dirtree_dev>(pathname, SQFS_INODE_TYPE_CHR, archive_entry_rdev(archive.entry), mode, uid, gid, mtime);
             break;
 
           case AE_IFSOCK:
-            rootdir->put_file(pathname, std::make_shared<dirtree_ipc>(&writer, SQFS_INODE_TYPE_SOCK, mode, uid, gid, mtime));
+            rootdir.put_file<dirtree_ipc>(pathname, SQFS_INODE_TYPE_SOCK, mode, uid, gid, mtime);
             break;
 
           case AE_IFIFO:
-            rootdir->put_file(pathname, std::make_shared<dirtree_ipc>(&writer, SQFS_INODE_TYPE_PIPE, mode, uid, gid, mtime));
+            rootdir.put_file<dirtree_ipc>(pathname, SQFS_INODE_TYPE_PIPE, mode, uid, gid, mtime);
             break;
         }
     }
 
   bool failed = writer.finish_data();
-  rootdir->write_tables();
+  rootdir.write_tables();
   writer.write_header();
 
   return failed;

@@ -75,7 +75,7 @@ struct sqsh_writer
   std::thread thread;
   bool single_threaded;
   bounded_work_queue<std::unique_ptr<pending_write>> writer_queue;
-  std::shared_ptr<compressor> comp;
+  std::unique_ptr<compressor> comp;
   std::atomic<bool> writer_failed{false};
 
   struct mdw dentry_writer;

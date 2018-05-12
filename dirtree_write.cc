@@ -43,16 +43,16 @@ struct dirtable_header
   uint32_t start_block;
   uint32_t inode_number;
 
-  bool works(std::shared_ptr<dirtree> const & inode)
+  bool works(dirtree const & inode)
   {
-    return start_block == inode->inode_address.block && within16(inode_number, inode->inode_number);
+    return start_block == inode.inode_address.block && within16(inode_number, inode.inode_number);
   }
 
   template <typename IT>
   std::size_t segment_len(IT it, IT const limit)
   {
     size_t i = 0;
-    for (; it != limit && works(it->second); ++i, ++it)
+    for (; it != limit && works(*it->second); ++i, ++it)
       ;
     return i;
   }

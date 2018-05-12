@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2016, 2017  Charles Cagle
+Copyright (C) 2016, 2017, 2018  Charles Cagle
 
 This file is part of archive2sqfs.
 
@@ -26,34 +26,31 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
 
-std::shared_ptr<dirtree_dir> dirtree_dir::subdir_for_path(std::string const & path)
+dirtree_dir & dirtree_dir::subdir_for_path(std::string const & path)
 {
-  auto const shared_this = shared_from_this();
-  auto subdir = std::shared_ptr<dirtree_dir>(shared_this, this);
+  auto subdir = this;
   std::istringstream pathtokens(path);
   std::string component;
   while (std::getline(pathtokens, component, '/'))
     if (!component.empty())
-      subdir = subdir->get_subdir(component);
-  return subdir;
+      subdir = &subdir->get_subdir(component);
+  return *subdir;
 }
 
-void dirtree_dir::put_file(std::string const & path, std::shared_ptr<dirtree> child)
+dirtree & dirtree_dir::put_file(std::string const & path, std::unique_ptr<dirtree> && child)
 {
   auto sep = path.rfind('/');
   auto name = sep == path.npos ? path : path.substr(sep + 1);
   auto parent = sep == path.npos ? "/" : path.substr(0, sep);
-  subdir_for_path(parent)->put_child(name, child);
+  return subdir_for_path(parent).put_child(name, std::move(child));
 }
 
-std::shared_ptr<dirtree_dir> dirtree_dir::get_subdir(std::string const & name)
+dirtree_dir & dirtree_dir::get_subdir(std::string const & name)
 {
   auto entry = entries.find(name);
   if (entry != entries.end() && entry->second->inode_type == SQFS_INODE_TYPE_DIR)
-    return std::shared_ptr<dirtree_dir>(entry->second, static_cast<dirtree_dir *>(entry->second.get()));
+    return *static_cast<dirtree_dir *>(entry->second.get());
 
-  auto const subdir = new dirtree_dir(wr);
-  std::shared_ptr<dirtree> subdir_shared(subdir);
-  entries[name] = subdir_shared;
-  return std::shared_ptr<dirtree_dir>(subdir_shared, subdir);
+  entries[name] = std::make_unique<dirtree_dir>(wr);
+  return *static_cast<dirtree_dir *>(entries[name].get());
 }
