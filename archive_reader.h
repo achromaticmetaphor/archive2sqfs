@@ -31,8 +31,6 @@ using namespace std::literals;
 class archive_reader
 {
 public:
-  struct archive_entry * entry;
-
   archive_reader(char const *);
   template <typename S> archive_reader(S);
   archive_reader(std::FILE *);
@@ -42,15 +40,26 @@ public:
   void read(void *, std::size_t);
   template <typename T> void read(T &, std::size_t);
 
+  auto pathname() const { return archive_entry_pathname(entry); }
+  auto filetype() const { return archive_entry_filetype(entry); }
+  auto mode() const { return archive_entry_perm(entry); }
+  auto uid() const { return archive_entry_uid(entry); }
+  auto gid() const { return archive_entry_gid(entry); }
+  auto mtime() const { return archive_entry_mtime(entry); }
+  auto filesize() const { return archive_entry_size(entry); }
+  auto rdev() const { return archive_entry_rdev(entry); }
+  auto symlink_target() const { return archive_entry_symlink(entry); }
+
 private:
   struct archive * reader;
+  struct archive_entry * entry;
 
   archive_reader();
 };
 
 static std::size_t const reader_blocksize = 10240;
 
-archive_reader::archive_reader()
+inline archive_reader::archive_reader()
 {
   reader = archive_read_new();
   if (reader == nullptr)
@@ -61,7 +70,8 @@ archive_reader::archive_reader()
     throw std::runtime_error("failed to enable all input formats"s);
 }
 
-archive_reader::archive_reader(char const * const pathname) : archive_reader()
+inline archive_reader::archive_reader(char const * const pathname)
+    : archive_reader()
 {
   if (archive_read_open_filename(reader, pathname, reader_blocksize) !=
       ARCHIVE_OK)
@@ -73,19 +83,20 @@ archive_reader::archive_reader(S pathname) : archive_reader(pathname.data())
 {
 }
 
-archive_reader::archive_reader(std::FILE * const handle) : archive_reader()
+inline archive_reader::archive_reader(std::FILE * const handle)
+    : archive_reader()
 {
   if (archive_read_open_FILE(reader, handle) != ARCHIVE_OK)
     throw std::runtime_error("failed to open archive by handle"s);
 }
 
-archive_reader::~archive_reader()
+inline archive_reader::~archive_reader()
 {
   if (reader != nullptr)
     archive_read_free(reader);
 }
 
-bool archive_reader::next()
+inline bool archive_reader::next()
 {
   auto const result = archive_read_next_header(reader, &entry);
   if (result == ARCHIVE_FATAL)
@@ -93,7 +104,7 @@ bool archive_reader::next()
   return result == ARCHIVE_OK;
 }
 
-void archive_reader::read(void * const buff, std::size_t const len)
+inline void archive_reader::read(void * const buff, std::size_t const len)
 {
   if (archive_read_data(reader, buff, len) != len)
     throw std::runtime_error("failed to read data from archive"s);

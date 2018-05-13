@@ -105,34 +105,21 @@ int main(int argc, char * argv[])
 
   while (archive.next())
     {
-      char const * const pathname =
-          strip_path(strip, archive_entry_pathname(archive.entry));
-      auto const filetype = archive_entry_filetype(archive.entry);
-      auto const mode = archive_entry_perm(archive.entry);
-      auto const uid = archive_entry_uid(archive.entry);
-      auto const gid = archive_entry_gid(archive.entry);
-      auto const mtime = archive_entry_mtime(archive.entry);
-      switch (filetype)
+      auto const pathname = strip_path(strip, archive.pathname());
+      switch (archive.filetype())
         {
           case AE_IFDIR:
-            {
-              auto & dir = rootdir.subdir_for_path(pathname);
-              dir.mode = mode;
-              dir.uid = uid;
-              dir.gid = gid;
-              dir.mtime = mtime;
-            }
+            rootdir.subdir_for_path(pathname).update_metadata(archive);
             break;
 
           case AE_IFREG:
             {
               std::vector<unsigned char> buff;
-              auto & reg = rootdir.put_file<dirtree_reg>(pathname, mode, uid,
-                                                         gid, mtime);
+              auto & reg = rootdir.put_file_with_metadata<dirtree_reg>(
+                  pathname, archive);
 
               int64_t i;
-              for (i = archive_entry_size(archive.entry); i >= block_size;
-                   i -= block_size)
+              for (i = archive.filesize(); i >= block_size; i -= block_size)
                 {
                   archive.read(buff, block_size);
                   reg.append(buff);
@@ -148,31 +135,28 @@ int main(int argc, char * argv[])
             break;
 
           case AE_IFLNK:
-            rootdir.put_file<dirtree_sym>(
-                pathname, archive_entry_symlink(archive.entry), mode, uid,
-                gid, mtime);
+            rootdir.put_file_with_metadata<dirtree_sym>(
+                pathname, archive, archive.symlink_target());
             break;
 
           case AE_IFBLK:
-            rootdir.put_file<dirtree_dev>(pathname, SQFS_INODE_TYPE_BLK,
-                                          archive_entry_rdev(archive.entry),
-                                          mode, uid, gid, mtime);
+            rootdir.put_file_with_metadata<dirtree_dev>(
+                pathname, archive, SQFS_INODE_TYPE_BLK, archive.rdev());
             break;
 
           case AE_IFCHR:
-            rootdir.put_file<dirtree_dev>(pathname, SQFS_INODE_TYPE_CHR,
-                                          archive_entry_rdev(archive.entry),
-                                          mode, uid, gid, mtime);
+            rootdir.put_file_with_metadata<dirtree_dev>(
+                pathname, archive, SQFS_INODE_TYPE_CHR, archive.rdev());
             break;
 
           case AE_IFSOCK:
-            rootdir.put_file<dirtree_ipc>(pathname, SQFS_INODE_TYPE_SOCK,
-                                          mode, uid, gid, mtime);
+            rootdir.put_file_with_metadata<dirtree_ipc>(pathname, archive,
+                                                        SQFS_INODE_TYPE_SOCK);
             break;
 
           case AE_IFIFO:
-            rootdir.put_file<dirtree_ipc>(pathname, SQFS_INODE_TYPE_PIPE,
-                                          mode, uid, gid, mtime);
+            rootdir.put_file_with_metadata<dirtree_ipc>(pathname, archive,
+                                                        SQFS_INODE_TYPE_PIPE);
             break;
         }
     }

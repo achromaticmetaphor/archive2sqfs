@@ -57,6 +57,14 @@ struct dirtree
     std::cout << path << std::endl;
   }
 
+  template <typename MS> void update_metadata(MS const & ms)
+  {
+    mode = ms.mode();
+    uid = ms.uid();
+    gid = ms.gid();
+    mtime = ms.mtime();
+  }
+
   void dump_tree() const { dump_tree("."); }
 
   virtual void write_inode(uint32_t) = 0;
@@ -190,6 +198,12 @@ struct dirtree_dir : public dirtree
   T & put_file(std::string const & name, A... a)
   {
     return static_cast<T &>(put_file(name, std::make_unique<T>(wr, a...)));
+  }
+
+  template <typename T, typename MS, typename... A>
+  T & put_file_with_metadata(std::string const & name, MS const & ms, A... a)
+  {
+    return put_file<T>(name, a..., ms.mode(), ms.uid(), ms.gid(), ms.mtime());
   }
 };
 
