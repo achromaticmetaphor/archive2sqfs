@@ -24,8 +24,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 using std::optional;
 #else
 
-template <typename T>
-class optional
+template <typename T> class optional
 {
   bool has_value;
   T value;

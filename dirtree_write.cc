@@ -45,11 +45,11 @@ struct dirtable_header
 
   bool works(dirtree const & inode)
   {
-    return start_block == inode.inode_address.block && within16(inode_number, inode.inode_number);
+    return start_block == inode.inode_address.block &&
+           within16(inode_number, inode.inode_number);
   }
 
-  template <typename IT>
-  std::size_t segment_len(IT it, IT const limit)
+  template <typename IT> std::size_t segment_len(IT it, IT const limit)
   {
     size_t i = 0;
     for (; it != limit && works(*it->second); ++i, ++it)
@@ -62,7 +62,8 @@ template <typename IT>
 static void dirtree_write_dirtable_segment(dirtree_dir & dir, IT & it)
 {
   auto & first = it->second;
-  struct dirtable_header header = {0, first->inode_address.block, first->inode_number};
+  struct dirtable_header header = {0, first->inode_address.block,
+                                   first->inode_number};
   header.count = header.segment_len(it, dir.entries.cend());
 
   endian_buffer<12> buff;
@@ -107,7 +108,8 @@ static void dirtree_write_dirtable(dirtree_dir & dir)
 }
 
 template <std::size_t N>
-static inline void dirtree_inode_common(struct dirtree * const dt, endian_buffer<N> & buff)
+static inline void dirtree_inode_common(struct dirtree * const dt,
+                                        endian_buffer<N> & buff)
 {
   buff.l16(dt->inode_type);
   buff.l16(dt->mode);
@@ -125,7 +127,9 @@ static void dirtree_reg_write_inode_blocks(dirtree_reg & reg)
   reg.wr->inode_writer.put(buff);
 }
 
-static inline void dirtree_write_inode_dir(endian_buffer<40> & buff, dirtree_dir & dir, uint32_t const parent_inode_number)
+static inline void dirtree_write_inode_dir(endian_buffer<40> & buff,
+                                           dirtree_dir & dir,
+                                           uint32_t const parent_inode_number)
 {
   if (dir.filesize > 0xffffu || dir.xattr != 0xffffffffu)
     {
@@ -148,10 +152,12 @@ static inline void dirtree_write_inode_dir(endian_buffer<40> & buff, dirtree_dir
     }
 }
 
-static inline void dirtree_inode_reg(endian_buffer<56> & buff, dirtree_reg & reg)
+static inline void dirtree_inode_reg(endian_buffer<56> & buff,
+                                     dirtree_reg & reg)
 {
   auto const start_block = reg.wr->reports[reg.inode_number].start_block;
-  if (start_block > 0xffffu || reg.file_size > 0xffffu || reg.xattr != 0xffffffffu || reg.nlink != 1)
+  if (start_block > 0xffffu || reg.file_size > 0xffffu ||
+      reg.xattr != 0xffffffffu || reg.nlink != 1)
     {
       buff.l64(start_block);
       buff.l64(reg.file_size);

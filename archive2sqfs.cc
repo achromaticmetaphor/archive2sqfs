@@ -37,7 +37,10 @@ using namespace std::literals;
 
 static int usage(std::string const & progname)
 {
-  std::cerr << "usage: " << progname << " [--single-thread] [--strip=N] [--compressor=<zlib|none>] outfile [infile]" << std::endl;
+  std::cerr << "usage: " << progname
+            << " [--single-thread] [--strip=N] [--compressor=<zlib|none>] "
+               "outfile [infile]"
+            << std::endl;
   return EINVAL;
 }
 
@@ -56,11 +59,13 @@ static char const * strip_path(size_t const strip, char const * pathname)
 
 static bool begins_with(std::string const & s, std::string const & prefix)
 {
-  return prefix.size() <= s.size() && prefix.compare(0, prefix.size(), s, 0, prefix.size()) == 0;
+  return prefix.size() <= s.size() &&
+         prefix.compare(0, prefix.size(), s, 0, prefix.size()) == 0;
 }
 
 template <typename C>
-static bool proc_prefix_arg(std::string const & prefix, std::string const & arg, C act)
+static bool proc_prefix_arg(std::string const & prefix,
+                            std::string const & arg, C act)
 {
   bool const matched = begins_with(arg, prefix);
   if (matched)
@@ -77,9 +82,12 @@ int main(int argc, char * argv[])
 
   std::vector<std::string> args;
   for (int i = 1; i < argc; ++i)
-    if (proc_prefix_arg("--strip=", argv[i], [&](auto s) { strip = strtoll(s.data(), nullptr, 10); }))
+    if (proc_prefix_arg("--strip=", argv[i], [&](auto s) {
+          strip = strtoll(s.data(), nullptr, 10);
+        }))
       ;
-    else if (proc_prefix_arg("--compressor=", argv[i], [&](auto s) { compressor = s; }))
+    else if (proc_prefix_arg("--compressor=", argv[i],
+                             [&](auto s) { compressor = s; }))
       ;
     else if ("--single-thread"s == argv[i])
       single_thread = true;
@@ -90,13 +98,15 @@ int main(int argc, char * argv[])
     return usage(argv[0]);
 
   struct sqsh_writer writer(args[0], block_log, compressor, single_thread);
-  archive_reader archive = args.size() > 1 ? archive_reader(args[1]) : archive_reader(stdin);
+  archive_reader archive =
+      args.size() > 1 ? archive_reader(args[1]) : archive_reader(stdin);
   dirtree_dir rootdir(&writer);
   int64_t const block_size = 1 << writer.super.block_log;
 
   while (archive.next())
     {
-      char const * const pathname = strip_path(strip, archive_entry_pathname(archive.entry));
+      char const * const pathname =
+          strip_path(strip, archive_entry_pathname(archive.entry));
       auto const filetype = archive_entry_filetype(archive.entry);
       auto const mode = archive_entry_perm(archive.entry);
       auto const uid = archive_entry_uid(archive.entry);
@@ -117,10 +127,12 @@ int main(int argc, char * argv[])
           case AE_IFREG:
             {
               std::vector<unsigned char> buff;
-              auto & reg = rootdir.put_file<dirtree_reg>(pathname, mode, uid, gid, mtime);
+              auto & reg = rootdir.put_file<dirtree_reg>(pathname, mode, uid,
+                                                         gid, mtime);
 
               int64_t i;
-              for (i = archive_entry_size(archive.entry); i >= block_size; i -= block_size)
+              for (i = archive_entry_size(archive.entry); i >= block_size;
+                   i -= block_size)
                 {
                   archive.read(buff, block_size);
                   reg.append(buff);
@@ -136,23 +148,31 @@ int main(int argc, char * argv[])
             break;
 
           case AE_IFLNK:
-            rootdir.put_file<dirtree_sym>(pathname, archive_entry_symlink(archive.entry), mode, uid, gid, mtime);
+            rootdir.put_file<dirtree_sym>(
+                pathname, archive_entry_symlink(archive.entry), mode, uid,
+                gid, mtime);
             break;
 
           case AE_IFBLK:
-            rootdir.put_file<dirtree_dev>(pathname, SQFS_INODE_TYPE_BLK, archive_entry_rdev(archive.entry), mode, uid, gid, mtime);
+            rootdir.put_file<dirtree_dev>(pathname, SQFS_INODE_TYPE_BLK,
+                                          archive_entry_rdev(archive.entry),
+                                          mode, uid, gid, mtime);
             break;
 
           case AE_IFCHR:
-            rootdir.put_file<dirtree_dev>(pathname, SQFS_INODE_TYPE_CHR, archive_entry_rdev(archive.entry), mode, uid, gid, mtime);
+            rootdir.put_file<dirtree_dev>(pathname, SQFS_INODE_TYPE_CHR,
+                                          archive_entry_rdev(archive.entry),
+                                          mode, uid, gid, mtime);
             break;
 
           case AE_IFSOCK:
-            rootdir.put_file<dirtree_ipc>(pathname, SQFS_INODE_TYPE_SOCK, mode, uid, gid, mtime);
+            rootdir.put_file<dirtree_ipc>(pathname, SQFS_INODE_TYPE_SOCK,
+                                          mode, uid, gid, mtime);
             break;
 
           case AE_IFIFO:
-            rootdir.put_file<dirtree_ipc>(pathname, SQFS_INODE_TYPE_PIPE, mode, uid, gid, mtime);
+            rootdir.put_file<dirtree_ipc>(pathname, SQFS_INODE_TYPE_PIPE,
+                                          mode, uid, gid, mtime);
             break;
         }
     }

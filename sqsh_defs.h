@@ -60,10 +60,7 @@ struct meta_address
   meta_address() : block(0), offset(0) {}
   meta_address(uint32_t b, uint16_t o) : block(b), offset(o) {}
 
-  operator uint64_t() const
-  {
-    return (uint64_t(block) << 16) | offset;
-  }
+  operator uint64_t() const { return (uint64_t(block) << 16) | offset; }
 };
 
 #endif

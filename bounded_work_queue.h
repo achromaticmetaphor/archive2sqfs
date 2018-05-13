@@ -27,8 +27,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "optional.h"
 
-template <typename T>
-class bounded_work_queue
+template <typename T> class bounded_work_queue
 {
   bool finished;
   std::size_t bound;

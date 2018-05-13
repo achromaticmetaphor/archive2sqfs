@@ -51,7 +51,8 @@ size_t sqsh_writer::put_fragment()
     flush_fragment();
 
   size_t const offset = current_fragment.size();
-  current_fragment.insert(current_fragment.end(), current_block.begin(), current_block.end());
+  current_fragment.insert(current_fragment.end(), current_block.begin(),
+                          current_block.end());
   current_block.clear();
   return offset;
 }
@@ -87,26 +88,25 @@ void sqsh_writer::write_header()
   outfile.write(reinterpret_cast<char const *>(header.data()), header.size());
 }
 
-template <typename T>
-static constexpr auto ITD_SHIFT(T entry_lb)
+template <typename T> static constexpr auto ITD_SHIFT(T entry_lb)
 {
   return SQFS_META_BLOCK_SIZE_LB - entry_lb;
 }
 
-template <typename T>
-static constexpr auto ITD_MASK(T entry_lb)
+template <typename T> static constexpr auto ITD_MASK(T entry_lb)
 {
   return MASK_LOW(ITD_SHIFT(entry_lb));
 }
 
-template <typename T>
-static constexpr auto ITD_ENTRY_SIZE(T entry_lb)
+template <typename T> static constexpr auto ITD_ENTRY_SIZE(T entry_lb)
 {
   return 1u << entry_lb;
 }
 
 template <std::size_t ENTRY_LB, typename G>
-static void sqsh_writer_write_indexed_table(sqsh_writer & wr, std::size_t const count, uint64_t & table_start, G entry)
+static void sqsh_writer_write_indexed_table(sqsh_writer & wr,
+                                            std::size_t const count,
+                                            uint64_t & table_start, G entry)
 {
   endian_buffer<0> indices;
   mdw mdw(*wr.comp);
@@ -127,10 +127,13 @@ static void sqsh_writer_write_indexed_table(sqsh_writer & wr, std::size_t const 
   mdw.out(wr.outfile);
   table_start = wr.outfile.tellp();
 
-  wr.outfile.write(reinterpret_cast<char const *>(indices.data()), indices.size());
+  wr.outfile.write(reinterpret_cast<char const *>(indices.data()),
+                   indices.size());
 }
 
-static inline void sqsh_writer_fragment_table_entry(endian_buffer<16> & buff, sqsh_writer & wr, size_t const i)
+static inline void sqsh_writer_fragment_table_entry(endian_buffer<16> & buff,
+                                                    sqsh_writer & wr,
+                                                    size_t const i)
 {
   fragment_entry const & frag = wr.fragments[i];
   buff.l64(frag.start_block);
@@ -140,12 +143,16 @@ static inline void sqsh_writer_fragment_table_entry(endian_buffer<16> & buff, sq
 
 static void sqsh_writer_write_id_table(sqsh_writer & wr)
 {
-  sqsh_writer_write_indexed_table<2>(wr, wr.rids.size(), wr.super.id_table_start, [](auto & buff, auto & wr, auto i) { buff.l32(wr.rids[i]); });
+  sqsh_writer_write_indexed_table<2>(
+      wr, wr.rids.size(), wr.super.id_table_start,
+      [](auto & buff, auto & wr, auto i) { buff.l32(wr.rids[i]); });
 }
 
 static void sqsh_writer_write_fragment_table(sqsh_writer & wr)
 {
-  sqsh_writer_write_indexed_table<4>(wr, wr.fragments.size(), wr.super.fragment_table_start, sqsh_writer_fragment_table_entry);
+  sqsh_writer_write_indexed_table<4>(wr, wr.fragments.size(),
+                                     wr.super.fragment_table_start,
+                                     sqsh_writer_fragment_table_entry);
 }
 
 static void sqsh_writer_write_inode_table(sqsh_writer & wr)
@@ -160,8 +167,8 @@ static void sqsh_writer_write_directory_table(sqsh_writer & wr)
 
 void sqsh_writer::write_tables()
 {
-#define TELL_WR(T)                         \
-  super.T##_table_start = outfile.tellp(); \
+#define TELL_WR(T)                                                           \
+  super.T##_table_start = outfile.tellp();                                   \
   sqsh_writer_write_##T##_table(*this);
 
   TELL_WR(inode);
@@ -175,9 +182,16 @@ void sqsh_writer::write_tables()
 void sqsh_writer::enqueue_fragment()
 {
   if (single_threaded)
-    pending_fragment(outfile, comp->compress_async(std::move(current_fragment), std::launch::deferred), fragments).handle_write();
+    pending_fragment(outfile,
+                     comp->compress_async(std::move(current_fragment),
+                                          std::launch::deferred),
+                     fragments)
+        .handle_write();
   else if (!writer_failed)
-    writer_queue.push(std::unique_ptr<pending_write>(new pending_fragment(outfile, comp->compress_async(std::move(current_fragment), std::launch::async), fragments)));
+    writer_queue.push(std::unique_ptr<pending_write>(new pending_fragment(
+        outfile,
+        comp->compress_async(std::move(current_fragment), std::launch::async),
+        fragments)));
   ++fragment_count;
   current_fragment = {};
 }
@@ -185,9 +199,16 @@ void sqsh_writer::enqueue_fragment()
 void sqsh_writer::enqueue_block(uint32_t inode_number)
 {
   if (single_threaded)
-    pending_block(outfile, comp->compress_async(std::move(current_block), std::launch::deferred), inode_number, reports).handle_write();
+    pending_block(
+        outfile,
+        comp->compress_async(std::move(current_block), std::launch::deferred),
+        inode_number, reports)
+        .handle_write();
   else if (!writer_failed)
-    writer_queue.push(std::unique_ptr<pending_write>(new pending_block(outfile, comp->compress_async(std::move(current_block), std::launch::async), inode_number, reports)));
+    writer_queue.push(std::unique_ptr<pending_write>(new pending_block(
+        outfile,
+        comp->compress_async(std::move(current_block), std::launch::async),
+        inode_number, reports)));
   current_block = {};
 }
 

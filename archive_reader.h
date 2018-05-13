@@ -34,15 +34,13 @@ public:
   struct archive_entry * entry;
 
   archive_reader(char const *);
-  template <typename S>
-  archive_reader(S);
+  template <typename S> archive_reader(S);
   archive_reader(std::FILE *);
   ~archive_reader();
 
   bool next();
   void read(void *, std::size_t);
-  template <typename T>
-  void read(T &, std::size_t);
+  template <typename T> void read(T &, std::size_t);
 
 private:
   struct archive * reader;
@@ -65,12 +63,15 @@ archive_reader::archive_reader()
 
 archive_reader::archive_reader(char const * const pathname) : archive_reader()
 {
-  if (archive_read_open_filename(reader, pathname, reader_blocksize) != ARCHIVE_OK)
+  if (archive_read_open_filename(reader, pathname, reader_blocksize) !=
+      ARCHIVE_OK)
     throw std::runtime_error("failed to open named archive"s);
 }
 
 template <typename S>
-archive_reader::archive_reader(S pathname) : archive_reader(pathname.data()) {}
+archive_reader::archive_reader(S pathname) : archive_reader(pathname.data())
+{
+}
 
 archive_reader::archive_reader(std::FILE * const handle) : archive_reader()
 {

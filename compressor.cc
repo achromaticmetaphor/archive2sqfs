@@ -28,7 +28,8 @@ using namespace std::literals;
 #include "compressor.h"
 #include "sqsh_defs.h"
 
-static void compress_zlib(std::vector<unsigned char> & out, std::vector<unsigned char> const & in)
+static void compress_zlib(std::vector<unsigned char> & out,
+                          std::vector<unsigned char> const & in)
 {
   auto zsize = compressBound(in.size());
   out.resize(zsize);
@@ -38,7 +39,8 @@ static void compress_zlib(std::vector<unsigned char> & out, std::vector<unsigned
 }
 
 template <typename C>
-static bool compress_data(C comp, std::vector<unsigned char> & out, std::vector<unsigned char> const && in)
+static bool compress_data(C comp, std::vector<unsigned char> & out,
+                          std::vector<unsigned char> const && in)
 {
   if (in.empty())
     return false;

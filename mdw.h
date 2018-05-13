@@ -46,8 +46,10 @@ struct mdw
   void write_block(void);
   meta_address put(unsigned char const *, size_t);
 
-  template <typename C>
-  meta_address put(C const & c) { return put(c.data(), c.size()); }
+  template <typename C> meta_address put(C const & c)
+  {
+    return put(c.data(), c.size());
+  }
 
   mdw(compressor & comp) : comp(comp) {}
 };

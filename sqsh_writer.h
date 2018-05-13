@@ -95,10 +95,7 @@ struct sqsh_writer
       return found->second;
   }
 
-  uint32_t next_inode_number()
-  {
-    return next_inode++;
-  }
+  uint32_t next_inode_number() { return next_inode++; }
 
   void write_header();
   size_t put_fragment();
@@ -110,7 +107,12 @@ struct sqsh_writer
   bool finish_data();
 
   template <typename P>
-  sqsh_writer(P path, int blog, std::string comptype, bool disable_threads = false) : outfile(path, std::ios_base::binary), single_threaded(disable_threads), writer_queue(thread_count()), comp(get_compressor_for(comptype)), dentry_writer(*comp), inode_writer(*comp)
+  sqsh_writer(P path, int blog, std::string comptype,
+              bool disable_threads = false)
+      : outfile(path, std::ios_base::binary),
+        single_threaded(disable_threads), writer_queue(thread_count()),
+        comp(get_compressor_for(comptype)), dentry_writer(*comp),
+        inode_writer(*comp)
   {
     super.block_log = blog;
     outfile.exceptions(std::ios_base::failbit);

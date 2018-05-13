@@ -37,7 +37,8 @@ dirtree_dir & dirtree_dir::subdir_for_path(std::string const & path)
   return *subdir;
 }
 
-dirtree & dirtree_dir::put_file(std::string const & path, std::unique_ptr<dirtree> && child)
+dirtree & dirtree_dir::put_file(std::string const & path,
+                                std::unique_ptr<dirtree> && child)
 {
   auto sep = path.rfind('/');
   auto name = sep == path.npos ? path : path.substr(sep + 1);
@@ -48,7 +49,8 @@ dirtree & dirtree_dir::put_file(std::string const & path, std::unique_ptr<dirtre
 dirtree_dir & dirtree_dir::get_subdir(std::string const & name)
 {
   auto entry = entries.find(name);
-  if (entry != entries.end() && entry->second->inode_type == SQFS_INODE_TYPE_DIR)
+  if (entry != entries.end() &&
+      entry->second->inode_type == SQFS_INODE_TYPE_DIR)
     return *static_cast<dirtree_dir *>(entry->second.get());
 
   entries[name] = std::make_unique<dirtree_dir>(wr);

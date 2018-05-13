@@ -42,7 +42,10 @@ struct dirtree
   uint32_t xattr;
   sqsh_writer * wr;
 
-  dirtree(sqsh_writer * wr, uint16_t inode_type, uint16_t mode = 0644, uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0) : inode_type(inode_type), mode(mode), uid(uid), gid(gid), mtime(mtime), wr(wr)
+  dirtree(sqsh_writer * wr, uint16_t inode_type, uint16_t mode = 0644,
+          uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0)
+      : inode_type(inode_type), mode(mode), uid(uid), gid(gid), mtime(mtime),
+        wr(wr)
   {
     inode_number = wr->next_inode_number();
     nlink = 1;
@@ -64,11 +67,16 @@ struct dirtree
 
 struct dirtree_ipc : public dirtree
 {
-  dirtree_ipc(sqsh_writer * wr, uint16_t type, uint16_t mode = 0644, uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0) : dirtree(wr, type, mode, uid, gid, mtime) {}
+  dirtree_ipc(sqsh_writer * wr, uint16_t type, uint16_t mode = 0644,
+              uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0)
+      : dirtree(wr, type, mode, uid, gid, mtime)
+  {
+  }
 
   void dump_tree(std::string const & path) const
   {
-    std::cout << path << (inode_type == SQFS_INODE_TYPE_PIPE ? "|" : "=") << std::endl;
+    std::cout << path << (inode_type == SQFS_INODE_TYPE_PIPE ? "|" : "=")
+              << std::endl;
   }
 
   virtual void write_inode(uint32_t);
@@ -83,7 +91,9 @@ struct dirtree_reg : public dirtree
 
   std::size_t block_count;
 
-  dirtree_reg(sqsh_writer * wr, uint16_t mode = 0644, uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0) : dirtree(wr, SQFS_INODE_TYPE_REG, mode, uid, gid, mtime)
+  dirtree_reg(sqsh_writer * wr, uint16_t mode = 0644, uint32_t uid = 0,
+              uint32_t gid = 0, uint32_t mtime = 0)
+      : dirtree(wr, SQFS_INODE_TYPE_REG, mode, uid, gid, mtime)
   {
     file_size = 0;
     sparse = 0;
@@ -96,8 +106,7 @@ struct dirtree_reg : public dirtree
   void flush();
   virtual void write_inode(uint32_t);
 
-  template <typename T>
-  void append(T & con)
+  template <typename T> void append(T & con)
   {
     append(con.data(), con.size());
   }
@@ -107,7 +116,13 @@ struct dirtree_sym : public dirtree
 {
   std::string target;
 
-  dirtree_sym(sqsh_writer * wr, std::string const & target, uint16_t mode = 0644, uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0) : dirtree(wr, SQFS_INODE_TYPE_SYM, mode, uid, gid, mtime), target(target) {}
+  dirtree_sym(sqsh_writer * wr, std::string const & target,
+              uint16_t mode = 0644, uint32_t uid = 0, uint32_t gid = 0,
+              uint32_t mtime = 0)
+      : dirtree(wr, SQFS_INODE_TYPE_SYM, mode, uid, gid, mtime),
+        target(target)
+  {
+  }
 
   void dump_tree(std::string const & path) const
   {
@@ -121,11 +136,17 @@ struct dirtree_dev : public dirtree
 {
   uint32_t rdev;
 
-  dirtree_dev(sqsh_writer * wr, uint16_t type, uint32_t rdev, uint16_t mode = 0644, uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0) : dirtree(wr, type, mode, uid, gid, mtime), rdev(rdev) {}
+  dirtree_dev(sqsh_writer * wr, uint16_t type, uint32_t rdev,
+              uint16_t mode = 0644, uint32_t uid = 0, uint32_t gid = 0,
+              uint32_t mtime = 0)
+      : dirtree(wr, type, mode, uid, gid, mtime), rdev(rdev)
+  {
+  }
 
   void dump_tree(std::string const & path) const
   {
-    std::cout << path << (inode_type == SQFS_INODE_TYPE_BLK ? "[]" : "''") << std::endl;
+    std::cout << path << (inode_type == SQFS_INODE_TYPE_BLK ? "[]" : "''")
+              << std::endl;
   }
 
   virtual void write_inode(uint32_t);
@@ -138,16 +159,24 @@ struct dirtree_dir : public dirtree
   uint32_t dtable_start_block;
   uint16_t dtable_start_offset;
 
-  dirtree_dir(sqsh_writer * wr, uint16_t mode = 0755, uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0) : dirtree(wr, SQFS_INODE_TYPE_DIR, mode, uid, gid, mtime) {}
+  dirtree_dir(sqsh_writer * wr, uint16_t mode = 0755, uint32_t uid = 0,
+              uint32_t gid = 0, uint32_t mtime = 0)
+      : dirtree(wr, SQFS_INODE_TYPE_DIR, mode, uid, gid, mtime)
+  {
+  }
 
   void dump_tree(std::string const & path) const
   {
     std::cout << path << std::endl;
     for (auto & entry : entries)
-      entry.second->dump_tree(path + (entry.second->inode_type == SQFS_INODE_TYPE_DIR ? "/" : "\t") + entry.first);
+      entry.second->dump_tree(
+          path +
+          (entry.second->inode_type == SQFS_INODE_TYPE_DIR ? "/" : "\t") +
+          entry.first);
   }
 
-  dirtree & put_child(std::string const & name, std::unique_ptr<dirtree> && child)
+  dirtree & put_child(std::string const & name,
+                      std::unique_ptr<dirtree> && child)
   {
     return *(entries[name] = std::move(child));
   }

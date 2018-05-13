@@ -24,15 +24,16 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "mdw.h"
 #include "sqsh_defs.h"
 
-template <typename T>
-static inline auto rup(T const a, T const s)
+template <typename T> static inline auto rup(T const a, T const s)
 {
   auto mask = ~(SIZE_MAX << s);
   auto factor = (a >> s) + ((a & mask) != 0);
   return (std::size_t(1) << s) * factor;
 }
 
-void mdw::write_block_compressed(std::size_t const block_len, unsigned char const * const block, uint16_t const bsize)
+void mdw::write_block_compressed(std::size_t const block_len,
+                                 unsigned char const * const block,
+                                 uint16_t const bsize)
 {
   endian_buffer<2> buff;
   buff.l16(bsize);
@@ -50,7 +51,9 @@ void mdw::write_block_no_pad(void)
 
   auto comp_res = comp.compress(block_type{buff});
   auto const size = comp_res.block.size();
-  write_block_compressed(size, comp_res.block.data(), comp_res.compressed ? size : (size | SQFS_META_BLOCK_COMPRESSED_BIT));
+  write_block_compressed(
+      size, comp_res.block.data(),
+      comp_res.compressed ? size : (size | SQFS_META_BLOCK_COMPRESSED_BIT));
   buff.clear();
 }
 

@@ -41,7 +41,9 @@ struct compressor
   virtual compression_result compress(block_type &&) = 0;
   virtual ~compressor() = default;
 
-  std::future<compression_result> compress_async(block_type && in, std::launch const policy = std::launch::async)
+  std::future<compression_result>
+  compress_async(block_type && in,
+                 std::launch const policy = std::launch::async)
   {
     return std::async(policy, &compressor::compress, this, std::move(in));
   }
@@ -57,7 +59,10 @@ struct compressor_zlib : public compressor
 
 struct compressor_none : public compressor
 {
-  virtual compression_result compress(block_type && in) { return {std::move(in), false}; }
+  virtual compression_result compress(block_type && in)
+  {
+    return {std::move(in), false};
+  }
   compressor_none() : compressor(SQFS_COMPRESSION_TYPE_ZLIB) {}
 };
 
