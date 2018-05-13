@@ -16,8 +16,8 @@ You should have received a copy of the GNU General Public License
 along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef LSL_MDW_H
-#define LSL_MDW_H
+#ifndef LSL_METADATA_WRITER_H
+#define LSL_METADATA_WRITER_H
 
 #include <ostream>
 #include <vector>
@@ -25,7 +25,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "compressor.h"
 #include "sqsh_defs.h"
 
-struct mdw
+struct metadata_writer
 {
   compressor & comp;
   std::vector<unsigned char> table;
@@ -51,7 +51,7 @@ struct mdw
     return put(c.data(), c.size());
   }
 
-  mdw(compressor & comp) : comp(comp) {}
+  metadata_writer(compressor & comp) : comp(comp) {}
 };
 
 #endif

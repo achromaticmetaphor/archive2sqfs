@@ -24,7 +24,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "compressor.h"
 #include "endian_buffer.h"
-#include "mdw.h"
+#include "metadata_writer.h"
 #include "sqsh_writer.h"
 
 #define MASK_LOW(N) (~((~0u) << (N)))
@@ -109,7 +109,7 @@ static void sqsh_writer_write_indexed_table(sqsh_writer & wr,
                                             uint64_t & table_start, G entry)
 {
   endian_buffer<0> indices;
-  mdw mdw(*wr.comp);
+  metadata_writer mdw(*wr.comp);
 
   for (std::size_t i = 0; i < count; ++i)
     {

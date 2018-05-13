@@ -30,7 +30,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "bounded_work_queue.h"
 #include "compressor.h"
 #include "fragment_entry.h"
-#include "mdw.h"
+#include "metadata_writer.h"
 #include "pending_write.h"
 #include "sqsh_defs.h"
 
@@ -78,8 +78,8 @@ struct sqsh_writer
   std::unique_ptr<compressor> comp;
   std::atomic<bool> writer_failed{false};
 
-  struct mdw dentry_writer;
-  struct mdw inode_writer;
+  metadata_writer dentry_writer;
+  metadata_writer inode_writer;
 
   uint16_t id_lookup(uint32_t const id)
   {

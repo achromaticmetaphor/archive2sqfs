@@ -21,7 +21,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 
 #include "endian_buffer.h"
-#include "mdw.h"
+#include "metadata_writer.h"
 #include "sqsh_defs.h"
 
 template <typename T> static inline auto rup(T const a, T const s)
@@ -31,9 +31,9 @@ template <typename T> static inline auto rup(T const a, T const s)
   return (std::size_t(1) << s) * factor;
 }
 
-void mdw::write_block_compressed(std::size_t const block_len,
-                                 unsigned char const * const block,
-                                 uint16_t const bsize)
+void metadata_writer::write_block_compressed(
+    std::size_t const block_len, unsigned char const * const block,
+    uint16_t const bsize)
 {
   endian_buffer<2> buff;
   buff.l16(bsize);
@@ -44,7 +44,7 @@ void mdw::write_block_compressed(std::size_t const block_len,
     table.push_back(block[i]);
 }
 
-void mdw::write_block_no_pad(void)
+void metadata_writer::write_block_no_pad(void)
 {
   if (buff.empty())
     return;
@@ -57,14 +57,14 @@ void mdw::write_block_no_pad(void)
   buff.clear();
 }
 
-void mdw::write_block(void)
+void metadata_writer::write_block(void)
 {
   while (buff.size() < SQFS_META_BLOCK_SIZE)
     buff.push_back(0);
   write_block_no_pad();
 }
 
-meta_address mdw::put(unsigned char const * b, std::size_t len)
+meta_address metadata_writer::put(unsigned char const * b, std::size_t len)
 {
   meta_address const addr = get_address();
 

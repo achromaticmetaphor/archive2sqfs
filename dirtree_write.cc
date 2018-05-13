@@ -27,7 +27,6 @@ using namespace std::literals;
 
 #include "dirtree.h"
 #include "endian_buffer.h"
-#include "mdw.h"
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
 
