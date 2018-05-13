@@ -52,11 +52,6 @@ struct dirtree
     xattr = SQFS_XATTR_NONE;
   }
 
-  virtual void dump_tree(std::string const & path) const
-  {
-    std::cout << path << std::endl;
-  }
-
   template <typename MS> void update_metadata(MS const & ms)
   {
     mode = ms.mode();
@@ -64,8 +59,6 @@ struct dirtree
     gid = ms.gid();
     mtime = ms.mtime();
   }
-
-  void dump_tree() const { dump_tree("."); }
 
   virtual void write_inode(uint32_t) = 0;
   void write_tables();
@@ -79,12 +72,6 @@ struct dirtree_ipc : public dirtree
               uint32_t uid = 0, uint32_t gid = 0, uint32_t mtime = 0)
       : dirtree(wr, type, mode, uid, gid, mtime)
   {
-  }
-
-  void dump_tree(std::string const & path) const
-  {
-    std::cout << path << (inode_type == SQFS_INODE_TYPE_PIPE ? "|" : "=")
-              << std::endl;
   }
 
   virtual void write_inode(uint32_t);
@@ -132,11 +119,6 @@ struct dirtree_sym : public dirtree
   {
   }
 
-  void dump_tree(std::string const & path) const
-  {
-    std::cout << path << "@ -> " << target << std::endl;
-  }
-
   virtual void write_inode(uint32_t);
 };
 
@@ -149,12 +131,6 @@ struct dirtree_dev : public dirtree
               uint32_t mtime = 0)
       : dirtree(wr, type, mode, uid, gid, mtime), rdev(rdev)
   {
-  }
-
-  void dump_tree(std::string const & path) const
-  {
-    std::cout << path << (inode_type == SQFS_INODE_TYPE_BLK ? "[]" : "''")
-              << std::endl;
   }
 
   virtual void write_inode(uint32_t);
@@ -171,16 +147,6 @@ struct dirtree_dir : public dirtree
               uint32_t gid = 0, uint32_t mtime = 0)
       : dirtree(wr, SQFS_INODE_TYPE_DIR, mode, uid, gid, mtime)
   {
-  }
-
-  void dump_tree(std::string const & path) const
-  {
-    std::cout << path << std::endl;
-    for (auto & entry : entries)
-      entry.second->dump_tree(
-          path +
-          (entry.second->inode_type == SQFS_INODE_TYPE_DIR ? "/" : "\t") +
-          entry.first);
   }
 
   dirtree & put_child(std::string const & name,
