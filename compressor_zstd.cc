@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2016, 2017, 2018  Charles Cagle
+Copyright (C) 2018  Charles Cagle
 
 This file is part of archive2sqfs.
 
@@ -16,6 +16,8 @@ You should have received a copy of the GNU General Public License
 along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#if LSL_ENABLE_COMP_zstd
+
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -23,40 +25,27 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace std::literals;
 
-#include <zlib.h>
+#include <zstd.h>
 
 #include "compressor.h"
 #include "sqsh_defs.h"
 
-static void compress_zlib(std::vector<unsigned char> & out,
+static void compress_zstd(std::vector<unsigned char> & out,
                           std::vector<unsigned char> const & in)
 {
-  auto zsize = compressBound(in.size());
-  out.resize(zsize);
-  if (compress2(out.data(), &zsize, in.data(), in.size(), 9) != Z_OK)
-    throw std::runtime_error("failure in zlib::compress2"s);
-  out.resize(zsize);
+  out.resize(ZSTD_compressBound(in.size()));
+  auto const result =
+      ZSTD_compress(out.data(), out.size(), in.data(), in.size(), 15);
+  if (ZSTD_isError(result))
+    throw std::runtime_error("failure in ZSTD_compress"s);
+  out.resize(result);
 }
 
-template <typename C>
-static bool compress_data(C comp, std::vector<unsigned char> & out,
-                          std::vector<unsigned char> const && in)
-{
-  if (in.empty())
-    return false;
-
-  comp(out, in);
-
-  bool const compressed = out.size() < in.size();
-  if (!compressed)
-    out = std::move(in);
-
-  return compressed;
-}
-
-compression_result compressor_zlib::compress(block_type && in)
+compression_result compressor_zstd::compress(block_type && in)
 {
   block_type out;
-  bool const compressed = compress_data(compress_zlib, out, std::move(in));
+  bool const compressed = compress_data(compress_zstd, out, std::move(in));
   return {std::move(out), compressed};
 }
+
+#endif

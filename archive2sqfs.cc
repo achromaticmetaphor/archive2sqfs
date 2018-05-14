@@ -38,7 +38,7 @@ using namespace std::literals;
 static int usage(std::string const & progname)
 {
   std::cerr << "usage: " << progname
-            << " [--single-thread] [--strip=N] [--compressor=<zlib|none>] "
+            << " [--single-thread] [--strip=N] [--compressor=<type>] "
                "outfile [infile]"
             << std::endl;
   return EINVAL;

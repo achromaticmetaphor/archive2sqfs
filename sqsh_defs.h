@@ -51,6 +51,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #define SQFS_COMPRESSION_TYPE_LZO 3
 #define SQFS_COMPRESSION_TYPE_XZ 4
 #define SQFS_COMPRESSION_TYPE_LZ4 5
+#define SQFS_COMPRESSION_TYPE_ZSTD 6
 
 struct meta_address
 {

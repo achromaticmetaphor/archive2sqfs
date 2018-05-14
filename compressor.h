@@ -25,6 +25,8 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <utility>
 #include <vector>
 
+using namespace std::literals;
+
 #include "sqsh_defs.h"
 
 using block_type = std::vector<unsigned char>;
@@ -57,6 +59,14 @@ struct compressor_zlib : public compressor
   compressor_zlib() : compressor(SQFS_COMPRESSION_TYPE_ZLIB) {}
 };
 
+#if LSL_ENABLE_COMP_zstd
+struct compressor_zstd : public compressor
+{
+  virtual compression_result compress(block_type &&);
+  compressor_zstd() : compressor(SQFS_COMPRESSION_TYPE_ZSTD) {}
+};
+#endif
+
 struct compressor_none : public compressor
 {
   virtual compression_result compress(block_type && in)
@@ -66,18 +76,35 @@ struct compressor_none : public compressor
   compressor_none() : compressor(SQFS_COMPRESSION_TYPE_ZLIB) {}
 };
 
-#include <iostream>
-
 static inline compressor * get_compressor_for(std::string const & type)
 {
-  if (type == "zlib")
-    return new compressor_zlib{};
-  else if (type == "none")
-    return new compressor_none{};
-  else
-    return new compressor_zlib{};
+#define RETURN_IF(N)                                                         \
+  if (type == #N)                                                            \
+    return new compressor_##N {}
+  RETURN_IF(zlib);
+#if LSL_ENABLE_COMP_zstd
+  RETURN_IF(zstd);
+#endif
+  RETURN_IF(none);
+  throw std::runtime_error("unknown compression type: "s + type);
+#undef RETURN_IF
 }
 
 static std::string const COMPRESSOR_DEFAULT = "zlib";
 
+template <typename C>
+static bool compress_data(C comp, std::vector<unsigned char> & out,
+                          std::vector<unsigned char> const && in)
+{
+  if (in.empty())
+    return false;
+
+  comp(out, in);
+
+  bool const compressed = out.size() < in.size();
+  if (!compressed)
+    out = std::move(in);
+
+  return compressed;
+}
 #endif
