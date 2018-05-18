@@ -59,27 +59,32 @@ static inline auto thread_count()
 
 struct sqsh_writer
 {
+  // owned by client thread.
   uint32_t next_inode = 1;
   struct sqfs_super super;
 
-  std::ofstream outfile;
+  bool const single_threaded;
+  std::thread thread;
+
+  std::unique_ptr<compressor> const comp;
+  metadata_writer dentry_writer;
+  metadata_writer inode_writer;
 
   std::vector<char> current_block;
   std::vector<char> current_fragment;
   std::vector<fragment_entry> fragments;
   uint32_t fragment_count = 0;
+
   std::unordered_map<uint32_t, uint16_t> ids;
   std::unordered_map<uint16_t, uint32_t> rids;
+
+  // owned by writer thread.
+  std::ofstream outfile;
   std::unordered_map<uint32_t, block_report> reports;
 
-  std::thread thread;
-  bool single_threaded;
+  // shared by client and writer threads.
   bounded_work_queue<std::unique_ptr<pending_write>> writer_queue;
-  std::unique_ptr<compressor> comp;
   std::atomic<bool> writer_failed{false};
-
-  metadata_writer dentry_writer;
-  metadata_writer inode_writer;
 
   uint16_t id_lookup(uint32_t const id)
   {
@@ -110,10 +115,9 @@ struct sqsh_writer
   template <typename P>
   sqsh_writer(P path, int blog, std::string comptype,
               bool disable_threads = false)
-      : outfile(path, std::ios_base::binary),
-        single_threaded(disable_threads), writer_queue(thread_count()),
-        comp(get_compressor_for(comptype)), dentry_writer(*comp),
-        inode_writer(*comp)
+      : single_threaded(disable_threads), comp(get_compressor_for(comptype)),
+        dentry_writer(*comp), inode_writer(*comp),
+        outfile(path, std::ios_base::binary), writer_queue(thread_count())
   {
     super.block_log = blog;
     outfile.exceptions(std::ios_base::failbit);
