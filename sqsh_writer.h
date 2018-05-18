@@ -27,6 +27,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include <unordered_map>
 #include <vector>
 
+#include "block_report.h"
 #include "bounded_work_queue.h"
 #include "compressor.h"
 #include "fragment_entry.h"

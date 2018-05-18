@@ -31,14 +31,9 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace std::literals;
 
+#include "block_report.h"
 #include "compressor.h"
 #include "fragment_entry.h"
-
-struct block_report
-{
-  uint64_t start_block;
-  std::vector<uint32_t> sizes;
-};
 
 struct pending_write
 {
