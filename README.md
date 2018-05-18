@@ -5,21 +5,16 @@ What works?
 -----------
 - directories, regular files, symlinks, sockets, pipes, device files
 - fragments
+- deduplication
 - gzip compression
 - zstd compression
 
 What doesn't work?
 ------------------
 - extended attributes
-- deduplication
 - sparseness
 - directory indexes
 - lzma, lzo, lz4, and xz compression
-- older SquashFS versions
-
-Shouldn't you add those?
-------------------------
-Yes, eventually.
 
 Why couldn't I just use mksquashfs?
 -----------------------------------
@@ -35,7 +30,7 @@ There are optional dependencies, enabled via CMake variables:
 
 How do I use it?
 ----------------
-    archive2sqfs [--strip=N] [--compressor=<type>] outfile [infile]
+    archive2sqfs [--strip=N] [--compressor=<type>] [--enable-dedup] [--single-thread] outfile [infile]
 
 - The --strip option removes leading directories from archive entries.
 - If the infile parameter is omitted, the input archive will be read from stdin.

@@ -93,4 +93,31 @@ template <typename T> struct pending_block : public pending_write<T>
   }
 };
 
+template <typename T> struct pending_dedup : public pending_write<T>
+{
+  uint32_t const inode_number;
+
+  pending_dedup(T & writer, uint32_t inode_number)
+      : pending_write<T>(writer, {}), inode_number(inode_number)
+  {
+  }
+
+  virtual void report(uint64_t, std::vector<char> &, bool) {}
+
+  virtual void handle_write()
+  {
+    auto & writer = pending_write<T>::writer;
+    auto const sum = writer.blocked_checksums[inode_number].sum;
+    auto & reports = writer.reports;
+    for (auto i : writer.blocked_duplicates[sum])
+      if (reports[inode_number].same_content(reports[i], writer))
+        {
+          writer.drop_bytes(reports[inode_number].range_len());
+          reports[inode_number] = reports[i];
+          return;
+        }
+    writer.blocked_duplicates[sum].push_back(inode_number);
+  }
+};
+
 #endif

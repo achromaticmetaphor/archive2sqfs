@@ -37,10 +37,10 @@ using namespace std::literals;
 
 static int usage(std::string const & progname)
 {
-  std::cerr << "usage: " << progname
-            << " [--single-thread] [--strip=N] [--compressor=<type>] "
-               "outfile [infile]"
-            << std::endl;
+  std::cerr << "usage: "s << progname
+            << " [--single-thread] [--enable-dedup]"s
+            << " [--strip=N] [--compressor=<type>]"s
+            << " outfile [infile]"s << std::endl;
   return EINVAL;
 }
 
@@ -77,6 +77,7 @@ int main(int argc, char * argv[])
 {
   std::size_t strip = 0;
   bool single_thread = false;
+  bool enable_dedup = false;
   int block_log = SQFS_BLOCK_LOG_DEFAULT;
   std::string compressor = COMPRESSOR_DEFAULT;
 
@@ -91,13 +92,16 @@ int main(int argc, char * argv[])
       ;
     else if ("--single-thread"s == argv[i])
       single_thread = true;
+    else if ("--enable-dedup"s == argv[i])
+      enable_dedup = true;
     else
       args.push_back(argv[i]);
 
   if (args.size() < 1 || args.size() > 2)
     return usage(argv[0]);
 
-  struct sqsh_writer writer(args[0], block_log, compressor, single_thread);
+  struct sqsh_writer writer(args[0], block_log, compressor, single_thread,
+                            enable_dedup);
   archive_reader archive =
       args.size() > 1 ? archive_reader(args[1]) : archive_reader(stdin);
   dirtree_dir rootdir(&writer);
@@ -130,7 +134,7 @@ int main(int argc, char * argv[])
                   reg.append(buff);
                 }
 
-              reg.flush();
+              reg.finalize();
             }
             break;
 

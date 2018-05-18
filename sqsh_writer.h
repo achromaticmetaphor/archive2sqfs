@@ -20,17 +20,21 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #define LSL_SQSH_WRITER_H
 
 #include <atomic>
+#include <condition_variable>
 #include <cstdint>
 #include <fstream>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <unordered_map>
 #include <vector>
 
+#include "adler_wrapper.h"
 #include "block_report.h"
 #include "bounded_work_queue.h"
 #include "compressor.h"
 #include "fragment_entry.h"
+#include "fstream_util.h"
 #include "metadata_writer.h"
 #include "pending_write.h"
 #include "sqsh_defs.h"
@@ -71,6 +75,7 @@ struct sqsh_writer
   struct sqfs_super super;
 
   bool const single_threaded;
+  bool const dedup_enabled;
   std::thread thread;
   std::string const outfilepath;
 
@@ -80,22 +85,36 @@ struct sqsh_writer
 
   std::vector<char> current_block;
   std::vector<char> current_fragment;
-  std::vector<fragment_entry> fragments;
   uint32_t fragment_count = 0;
 
   std::unordered_map<uint32_t, uint16_t> ids;
   std::unordered_map<uint16_t, uint32_t> rids;
 
   std::unordered_map<uint32_t, fragment_index> fragment_indices;
+  std::unordered_map<uint32_t, adler_wrapper> fragmented_checksums;
+  std::unordered_map<decltype(fragmented_checksums[0].sum),
+                     std::vector<uint32_t>>
+      fragmented_duplicates;
 
   // owned by writer thread.
-  std::ofstream outfile;
   std::unordered_map<uint32_t, block_report> reports;
 
+  std::unordered_map<uint32_t, adler_wrapper> blocked_checksums;
+  std::unordered_map<decltype(blocked_checksums[0].sum),
+                     std::vector<uint32_t>>
+      blocked_duplicates;
+
   // shared by client and writer threads.
+  std::fstream outfile;
+  std::mutex outfile_mutex;
+
   bounded_work_queue<std::unique_ptr<pending_write<sqsh_writer>>>
       writer_queue;
   std::atomic<bool> writer_failed{false};
+
+  std::vector<fragment_entry> fragments;
+  std::mutex fragments_mutex;
+  std::condition_variable fragments_cv;
 
   uint16_t id_lookup(uint32_t const id)
   {
@@ -115,28 +134,54 @@ struct sqsh_writer
   std::size_t block_size() const { return std::size_t(1) << super.block_log; }
 
   void write_header();
+  optional<fragment_index> dedup_fragment_index(uint32_t);
+  bool dedup_fragment(uint32_t);
   void put_fragment(uint32_t);
   void flush_fragment();
   void write_tables();
   void enqueue_block(uint32_t);
+  void enqueue_dedup(uint32_t);
   void enqueue_fragment();
   void writer_thread();
   bool finish_data();
   void push_fragment_entry(fragment_entry);
+  optional<fragment_entry> get_fragment_entry(uint32_t);
 
   template <typename C> auto write_bytes(C const & c)
   {
+    std::lock_guard<decltype(outfile_mutex)> lock(outfile_mutex);
     auto const tell = outfile.tellp();
     outfile.write(c.data(), c.size());
     return tell;
   }
 
-  template <typename P>
-  sqsh_writer(P path, int blog, std::string comptype,
-              bool disable_threads = false)
-      : single_threaded(disable_threads), outfilepath(path),
-        comp(get_compressor_for(comptype)), dentry_writer(*comp),
-        inode_writer(*comp), outfile(path, std::ios_base::binary),
+  std::vector<char> read_bytes(decltype(outfile)::pos_type const pos,
+                               std::streamsize const len)
+  {
+    std::lock_guard<decltype(outfile_mutex)> lock(outfile_mutex);
+    restore_pos rp(outfile);
+    std::vector<char> v;
+
+    outfile.seekg(pos);
+    v.resize(len);
+    outfile.read(v.data(), v.size());
+
+    return v;
+  }
+
+  void drop_bytes(decltype(outfile)::off_type count)
+  {
+    std::lock_guard<decltype(outfile_mutex)> lock(outfile_mutex);
+    outfile.seekp(-count, std::ios_base::cur);
+  }
+
+  sqsh_writer(std::string path, int blog, std::string comptype,
+              bool disable_threads = false, bool enable_dedup = false)
+      : single_threaded(disable_threads), dedup_enabled(enable_dedup),
+        outfilepath(path), comp(get_compressor_for(comptype)),
+        dentry_writer(*comp), inode_writer(*comp),
+        outfile(path, std::ios_base::binary | std::ios_base::in |
+                          std::ios_base::out | std::ios_base::trunc),
         writer_queue(thread_count())
   {
     super.block_log = blog;

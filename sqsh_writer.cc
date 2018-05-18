@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <ostream>
@@ -37,8 +38,65 @@ void sqsh_writer::flush_fragment()
     enqueue_fragment();
 }
 
+template <typename C, typename C2>
+bool compare_range(C const & a, C2 const & b, std::size_t const off)
+{
+  return a.size() + off <= b.size() &&
+         std::equal(a.cbegin(), a.cend(), b.cbegin() + off);
+}
+
+template <typename T>
+static std::vector<char>
+get_block(T & reader, std::fstream::pos_type const pos,
+          std::streamsize const size, std::size_t const block_size)
+{
+  auto bytes = reader.read_bytes(pos, size & ~SQFS_BLOCK_COMPRESSED_BIT);
+  return size & SQFS_BLOCK_COMPRESSED_BIT
+             ? bytes
+             : reader.comp->decompress(std::move(bytes), block_size);
+}
+
+optional<fragment_index>
+sqsh_writer::dedup_fragment_index(uint32_t inode_number)
+{
+  auto & cksum = fragmented_checksums[inode_number];
+  cksum.update(current_block);
+  auto & duplicates = fragmented_duplicates[cksum.sum];
+  for (auto dup = duplicates.crbegin(); dup != duplicates.crend(); ++dup)
+    {
+      auto const & index = fragment_indices[*dup];
+      auto const & entry_opt = get_fragment_entry(index.fragment);
+      if (entry_opt)
+        {
+          auto frag = get_block(*this, entry_opt->start_block,
+                                entry_opt->size, block_size());
+          if (compare_range(current_block, frag, index.offset))
+            return fragment_index{index};
+        }
+      else if (compare_range(current_block, current_fragment, index.offset))
+        return fragment_index{index};
+    }
+
+  duplicates.push_back(inode_number);
+  return {};
+}
+
+bool sqsh_writer::dedup_fragment(uint32_t inode_number)
+{
+  auto const index_opt = dedup_fragment_index(inode_number);
+  if (index_opt)
+    {
+      fragment_indices[inode_number] = *index_opt;
+      current_block.clear();
+    }
+  return bool{index_opt};
+}
+
 void sqsh_writer::put_fragment(uint32_t inode_number)
 {
+  if (dedup_enabled && dedup_fragment(inode_number))
+    return;
+
   if (current_fragment.size() + current_block.size() > block_size())
     flush_fragment();
 
@@ -52,7 +110,21 @@ void sqsh_writer::put_fragment(uint32_t inode_number)
 
 void sqsh_writer::push_fragment_entry(fragment_entry entry)
 {
+  std::unique_lock<decltype(fragments_mutex)> lock(fragments_mutex);
   fragments.push_back(entry);
+  fragments_cv.notify_all();
+}
+
+optional<fragment_entry> sqsh_writer::get_fragment_entry(uint32_t fragment)
+{
+  if (fragment == fragment_count)
+    return {};
+  else
+    {
+      std::unique_lock<decltype(fragments_mutex)> lock(fragments_mutex);
+      fragments_cv.wait(lock, [&]() { return fragments.size() > fragment; });
+      return fragment_entry{fragments[fragment]};
+    }
 }
 
 void sqsh_writer::write_header()
@@ -216,13 +288,22 @@ void sqsh_writer::enqueue_block(uint32_t inode_number)
   current_block = {};
 }
 
+void sqsh_writer::enqueue_dedup(uint32_t inode_number)
+{
+  if (dedup_enabled)
+    if (single_threaded)
+      pending_dedup<sqsh_writer>(*this, inode_number).handle_write();
+    else if (!writer_failed)
+      writer_queue.push(std::unique_ptr<pending_write<sqsh_writer>>(
+          new pending_dedup<sqsh_writer>(*this, inode_number)));
+}
+
 void sqsh_writer::writer_thread()
 {
   for (auto option = writer_queue.pop(); option; option = writer_queue.pop())
     try
       {
-        if (!writer_failed)
-          (*option)->handle_write();
+        (*option)->handle_write();
       }
     catch (...)
       {

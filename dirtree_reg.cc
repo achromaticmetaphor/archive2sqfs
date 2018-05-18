@@ -39,6 +39,13 @@ void dirtree_reg::flush()
     }
 }
 
+void dirtree_reg::finalize()
+{
+  flush();
+  if (block_count != 0)
+    wr->enqueue_dedup(inode_number);
+}
+
 void dirtree_reg::append(char const * buff, std::size_t len)
 {
   file_size += len;
