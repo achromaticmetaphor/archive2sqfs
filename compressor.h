@@ -19,6 +19,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef LSL_COMPRESSOR_H
 #define LSL_COMPRESSOR_H
 
+#include <cstddef>
 #include <future>
 #include <memory>
 #include <string>
@@ -41,6 +42,7 @@ struct compressor
 {
   uint16_t const type;
   virtual compression_result compress(block_type &&) = 0;
+  virtual block_type decompress(block_type &&, std::size_t) = 0;
   virtual ~compressor() = default;
 
   std::future<compression_result>
@@ -56,6 +58,7 @@ struct compressor
 struct compressor_zlib : public compressor
 {
   virtual compression_result compress(block_type &&);
+  virtual block_type decompress(block_type &&, std::size_t);
   compressor_zlib() : compressor(SQFS_COMPRESSION_TYPE_ZLIB) {}
 };
 
@@ -63,6 +66,7 @@ struct compressor_zlib : public compressor
 struct compressor_zstd : public compressor
 {
   virtual compression_result compress(block_type &&);
+  virtual block_type decompress(block_type &&, std::size_t);
   compressor_zstd() : compressor(SQFS_COMPRESSION_TYPE_ZSTD) {}
 };
 #endif
@@ -73,6 +77,12 @@ struct compressor_none : public compressor
   {
     return {std::move(in), false};
   }
+
+  virtual block_type decompress(block_type && in, std::size_t)
+  {
+    return std::move(in);
+  }
+
   compressor_none() : compressor(SQFS_COMPRESSION_TYPE_ZLIB) {}
 };
 

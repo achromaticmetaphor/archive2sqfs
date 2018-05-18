@@ -18,6 +18,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #if LSL_ENABLE_COMP_zstd
 
+#include <cstddef>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -45,6 +46,19 @@ compression_result compressor_zstd::compress(block_type && in)
   block_type out;
   bool const compressed = compress_data(compress_zstd, out, std::move(in));
   return {std::move(out), compressed};
+}
+
+block_type compressor_zstd::decompress(block_type && in,
+                                       std::size_t const bound)
+{
+  block_type out;
+  out.resize(bound);
+  auto const result =
+      ZSTD_decompress(out.data(), out.size(), in.data(), in.size());
+  if (ZSTD_isError(result))
+    throw std::runtime_error("failure in ZSTD_decompress"s);
+  out.resize(result);
+  return out;
 }
 
 #endif

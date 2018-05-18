@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <cstddef>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -44,4 +45,18 @@ compression_result compressor_zlib::compress(block_type && in)
   block_type out;
   bool const compressed = compress_data(compress_zlib, out, std::move(in));
   return {std::move(out), compressed};
+}
+
+block_type compressor_zlib::decompress(block_type && in,
+                                       std::size_t const bound)
+{
+  uLongf zsize = bound;
+  block_type out;
+  out.resize(zsize);
+  if (uncompress(reinterpret_cast<Bytef *>(out.data()), &zsize,
+                 reinterpret_cast<Bytef const *>(in.data()),
+                 in.size()) != Z_OK)
+    throw std::runtime_error("failure in zlib::uncompress"s);
+  out.resize(zsize);
+  return out;
 }
