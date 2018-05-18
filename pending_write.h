@@ -35,67 +35,60 @@ using namespace std::literals;
 #include "compressor.h"
 #include "fragment_entry.h"
 
-struct pending_write
+template <typename T> struct pending_write
 {
-  std::ofstream & out;
+  T & writer;
   std::future<compression_result> future;
 
-  pending_write(std::ofstream & out,
-                std::future<compression_result> && future)
-      : out(out), future(std::move(future))
+  pending_write(T & writer, std::future<compression_result> && future)
+      : writer(writer), future(std::move(future))
   {
   }
   virtual ~pending_write() = default;
 
-  virtual void report(uint64_t, uint32_t, bool) = 0;
+  virtual void report(uint64_t, std::vector<char> &, bool) = 0;
 
-  void handle_write()
+  virtual void handle_write()
   {
-    auto const tell = out.tellp();
     auto result = future.get();
-    out.write(result.block.data(), result.block.size());
-    report(tell, result.block.size(), result.compressed);
+    report(writer.write_bytes(result.block), result.block, result.compressed);
   }
 };
 
-struct pending_fragment : public pending_write
+template <typename T> struct pending_fragment : public pending_write<T>
 {
-  std::vector<fragment_entry> & fragments;
-
-  pending_fragment(std::ofstream & out,
-                   std::future<compression_result> && future,
-                   std::vector<fragment_entry> & frags)
-      : pending_write(out, std::move(future)), fragments(frags)
+  pending_fragment(T & writer, std::future<compression_result> && future)
+      : pending_write<T>(writer, std::move(future))
   {
   }
 
-  virtual void report(uint64_t start, uint32_t size, bool compressed)
+  virtual void report(uint64_t start, std::vector<char> & block,
+                      bool compressed)
   {
-    fragments.push_back(
+    uint32_t const size = block.size();
+    pending_write<T>::writer.push_fragment_entry(
         {start, size | (compressed ? 0 : SQFS_BLOCK_COMPRESSED_BIT)});
   }
 };
 
-struct pending_block : public pending_write
+template <typename T> struct pending_block : public pending_write<T>
 {
   uint32_t inode_number;
-  std::unordered_map<uint32_t, block_report> & reports;
 
-  pending_block(std::ofstream & out,
-                std::future<compression_result> && future,
-                uint32_t inode_number,
-                std::unordered_map<uint32_t, block_report> & reports)
-      : pending_write(out, std::move(future)), inode_number(inode_number),
-        reports(reports)
+  pending_block(T & writer, std::future<compression_result> && future,
+                uint32_t inode_number)
+      : pending_write<T>(writer, std::move(future)),
+        inode_number(inode_number)
   {
   }
 
-  virtual void report(uint64_t start, uint32_t size, bool compressed)
+  virtual void report(uint64_t start, std::vector<char> & block,
+                      bool compressed)
   {
-    auto & report = reports[inode_number];
+    auto & report = pending_write<T>::writer.reports[inode_number];
     if (report.sizes.empty())
       report.start_block = start;
-    report.sizes.push_back(size |
+    report.sizes.push_back(block.size() |
                            (compressed ? 0 : SQFS_BLOCK_COMPRESSED_BIT));
   }
 };

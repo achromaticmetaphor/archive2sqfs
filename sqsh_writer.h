@@ -93,7 +93,8 @@ struct sqsh_writer
   std::unordered_map<uint32_t, block_report> reports;
 
   // shared by client and writer threads.
-  bounded_work_queue<std::unique_ptr<pending_write>> writer_queue;
+  bounded_work_queue<std::unique_ptr<pending_write<sqsh_writer>>>
+      writer_queue;
   std::atomic<bool> writer_failed{false};
 
   uint16_t id_lookup(uint32_t const id)
@@ -121,6 +122,14 @@ struct sqsh_writer
   void enqueue_fragment();
   void writer_thread();
   bool finish_data();
+  void push_fragment_entry(fragment_entry);
+
+  template <typename C> auto write_bytes(C const & c)
+  {
+    auto const tell = outfile.tellp();
+    outfile.write(c.data(), c.size());
+    return tell;
+  }
 
   template <typename P>
   sqsh_writer(P path, int blog, std::string comptype,

@@ -26,6 +26,7 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "endian_buffer.h"
 #include "filesystem.h"
 #include "metadata_writer.h"
+#include "pending_write.h"
 #include "sqsh_writer.h"
 
 #define MASK_LOW(N) (~((~0u) << (N)))
@@ -47,6 +48,11 @@ void sqsh_writer::put_fragment(uint32_t inode_number)
   current_fragment.insert(current_fragment.end(), current_block.begin(),
                           current_block.end());
   current_block.clear();
+}
+
+void sqsh_writer::push_fragment_entry(fragment_entry entry)
+{
+  fragments.push_back(entry);
 }
 
 void sqsh_writer::write_header()
@@ -179,16 +185,15 @@ void sqsh_writer::write_tables()
 void sqsh_writer::enqueue_fragment()
 {
   if (single_threaded)
-    pending_fragment(outfile,
-                     comp->compress_async(std::move(current_fragment),
-                                          std::launch::deferred),
-                     fragments)
+    pending_fragment<sqsh_writer>(
+        *this, comp->compress_async(std::move(current_fragment),
+                                    std::launch::deferred))
         .handle_write();
   else if (!writer_failed)
-    writer_queue.push(std::unique_ptr<pending_write>(new pending_fragment(
-        outfile,
-        comp->compress_async(std::move(current_fragment), std::launch::async),
-        fragments)));
+    writer_queue.push(std::unique_ptr<pending_write<sqsh_writer>>(
+        new pending_fragment<sqsh_writer>(
+            *this, comp->compress_async(std::move(current_fragment),
+                                        std::launch::async))));
   ++fragment_count;
   current_fragment = {};
 }
@@ -196,16 +201,18 @@ void sqsh_writer::enqueue_fragment()
 void sqsh_writer::enqueue_block(uint32_t inode_number)
 {
   if (single_threaded)
-    pending_block(
-        outfile,
+    pending_block<sqsh_writer>(
+        *this,
         comp->compress_async(std::move(current_block), std::launch::deferred),
-        inode_number, reports)
+        inode_number)
         .handle_write();
   else if (!writer_failed)
-    writer_queue.push(std::unique_ptr<pending_write>(new pending_block(
-        outfile,
-        comp->compress_async(std::move(current_block), std::launch::async),
-        inode_number, reports)));
+    writer_queue.push(std::unique_ptr<pending_write<sqsh_writer>>(
+        new pending_block<sqsh_writer>(
+            *this,
+            comp->compress_async(std::move(current_block),
+                                 std::launch::async),
+            inode_number)));
   current_block = {};
 }
 
