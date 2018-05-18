@@ -155,6 +155,7 @@ static inline void dirtree_inode_reg(endian_buffer<56> & buff,
                                      dirtree_reg & reg)
 {
   auto const start_block = reg.wr->reports[reg.inode_number].start_block;
+  auto const findex = reg.wr->fragment_indices[reg.inode_number];
   if (start_block > 0xffffu || reg.file_size > 0xffffu ||
       reg.xattr != 0xffffffffu || reg.nlink != 1)
     {
@@ -162,16 +163,16 @@ static inline void dirtree_inode_reg(endian_buffer<56> & buff,
       buff.l64(reg.file_size);
       buff.l64(reg.sparse);
       buff.l32(reg.nlink);
-      buff.l32(reg.fragment);
-      buff.l32(reg.offset);
+      buff.l32(findex.fragment);
+      buff.l32(findex.offset);
       buff.l32(reg.xattr);
     }
   else
     {
       buff.l16(0, reg.inode_type - 7);
       buff.l32(start_block);
-      buff.l32(reg.fragment);
-      buff.l32(reg.offset);
+      buff.l32(findex.fragment);
+      buff.l32(findex.offset);
       buff.l32(reg.file_size);
     }
 }

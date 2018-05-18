@@ -31,10 +31,7 @@ void dirtree_reg::flush()
     return;
 
   if (wr->current_block.size() < wr->block_size() && block_count == 0)
-    {
-      offset = wr->put_fragment();
-      fragment = wr->fragment_count;
-    }
+    wr->put_fragment(inode_number);
   else
     {
       wr->enqueue_block(inode_number);

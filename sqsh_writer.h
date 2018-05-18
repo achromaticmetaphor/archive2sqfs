@@ -36,6 +36,12 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #define SQFS_BLOCK_LOG_DEFAULT 17
 
+struct fragment_index
+{
+  uint32_t fragment = SQFS_FRAGMENT_NONE;
+  uint32_t offset;
+};
+
 struct sqfs_super
 {
   uint16_t block_log = SQFS_BLOCK_LOG_DEFAULT;
@@ -78,6 +84,8 @@ struct sqsh_writer
   std::unordered_map<uint32_t, uint16_t> ids;
   std::unordered_map<uint16_t, uint32_t> rids;
 
+  std::unordered_map<uint32_t, fragment_index> fragment_indices;
+
   // owned by writer thread.
   std::ofstream outfile;
   std::unordered_map<uint32_t, block_report> reports;
@@ -104,7 +112,7 @@ struct sqsh_writer
   std::size_t block_size() const { return std::size_t(1) << super.block_log; }
 
   void write_header();
-  size_t put_fragment();
+  void put_fragment(uint32_t);
   void flush_fragment();
   void write_tables();
   void enqueue_block(uint32_t);

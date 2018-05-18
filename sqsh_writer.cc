@@ -44,16 +44,17 @@ void sqsh_writer::flush_fragment()
     enqueue_fragment();
 }
 
-size_t sqsh_writer::put_fragment()
+void sqsh_writer::put_fragment(uint32_t inode_number)
 {
   if (current_fragment.size() + current_block.size() > block_size())
     flush_fragment();
 
-  size_t const offset = current_fragment.size();
+  auto & index = fragment_indices[inode_number];
+  index.fragment = fragment_count;
+  index.offset = current_fragment.size();
   current_fragment.insert(current_fragment.end(), current_block.begin(),
                           current_block.end());
   current_block.clear();
-  return offset;
 }
 
 void sqsh_writer::write_header()

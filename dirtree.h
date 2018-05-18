@@ -81,8 +81,6 @@ struct dirtree_reg : public dirtree
 {
   uint64_t file_size;
   uint64_t sparse;
-  uint32_t fragment;
-  uint32_t offset;
 
   std::size_t block_count;
 
@@ -92,8 +90,6 @@ struct dirtree_reg : public dirtree
   {
     file_size = 0;
     sparse = 0;
-    fragment = SQFS_FRAGMENT_NONE;
-    offset = 0;
     block_count = 0;
   }
 
