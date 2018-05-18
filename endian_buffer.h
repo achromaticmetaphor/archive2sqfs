@@ -56,7 +56,7 @@ public:
 
 template <std::size_t N> class endian_buffer : public endian_buffer_base
 {
-  std::array<unsigned char, N> arr;
+  std::array<char, N> arr;
   std::size_t index = 0;
 
 public:
@@ -64,21 +64,21 @@ public:
 
   virtual void l8(uint8_t const n) { l8(index++, n); }
 
-  unsigned char const * data() const { return arr.data(); }
+  char const * data() const { return arr.data(); }
   std::size_t size() const { return index; }
   auto operator[](std::size_t n) const { return arr[n]; }
 };
 
 template <> class endian_buffer<0> : public endian_buffer_base
 {
-  std::vector<unsigned char> vec;
+  std::vector<char> vec;
 
 public:
   virtual void l8(uint8_t const n) { vec.push_back(n); }
 
   virtual void l8(std::size_t i, uint8_t const n) { vec[i] = n; }
 
-  unsigned char const * data() const { return vec.data(); }
+  char const * data() const { return vec.data(); }
   std::size_t size() const { return vec.size(); }
   auto operator[](std::size_t n) const { return vec[n]; }
 };

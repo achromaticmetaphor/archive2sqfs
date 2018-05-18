@@ -58,8 +58,7 @@ struct pending_write
   {
     auto const tell = out.tellp();
     auto result = future.get();
-    out.write(reinterpret_cast<char *>(result.block.data()),
-              result.block.size());
+    out.write(result.block.data(), result.block.size());
     report(tell, result.block.size(), result.compressed);
   }
 };

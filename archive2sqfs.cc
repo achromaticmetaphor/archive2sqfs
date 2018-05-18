@@ -114,7 +114,7 @@ int main(int argc, char * argv[])
 
           case AE_IFREG:
             {
-              std::vector<unsigned char> buff;
+              std::vector<char> buff;
               auto & reg = rootdir.put_file_with_metadata<dirtree_reg>(
                   pathname, archive);
 

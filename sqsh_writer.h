@@ -64,8 +64,8 @@ struct sqsh_writer
 
   std::ofstream outfile;
 
-  std::vector<unsigned char> current_block;
-  std::vector<unsigned char> current_fragment;
+  std::vector<char> current_block;
+  std::vector<char> current_fragment;
   std::vector<fragment_entry> fragments;
   uint32_t fragment_count = 0;
   std::unordered_map<uint32_t, uint16_t> ids;

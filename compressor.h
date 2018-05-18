@@ -29,7 +29,7 @@ using namespace std::literals;
 
 #include "sqsh_defs.h"
 
-using block_type = std::vector<unsigned char>;
+using block_type = std::vector<char>;
 
 struct compression_result
 {
@@ -93,8 +93,7 @@ static inline compressor * get_compressor_for(std::string const & type)
 static std::string const COMPRESSOR_DEFAULT = "zlib";
 
 template <typename C>
-static bool compress_data(C comp, std::vector<unsigned char> & out,
-                          std::vector<unsigned char> const && in)
+static bool compress_data(C comp, block_type & out, block_type const && in)
 {
   if (in.empty())
     return false;

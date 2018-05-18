@@ -97,7 +97,7 @@ struct dirtree_reg : public dirtree
     block_count = 0;
   }
 
-  void append(unsigned char const *, std::size_t);
+  void append(char const *, std::size_t);
   void flush();
   virtual void write_inode(uint32_t);
 

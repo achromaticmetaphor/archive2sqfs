@@ -43,7 +43,7 @@ void dirtree_reg::flush()
     }
 }
 
-void dirtree_reg::append(unsigned char const * buff, std::size_t len)
+void dirtree_reg::append(char const * buff, std::size_t len)
 {
   file_size += len;
   auto const block_size = std::size_t(1) << wr->super.block_log;

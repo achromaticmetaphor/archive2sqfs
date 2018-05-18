@@ -28,12 +28,13 @@ using namespace std::literals;
 #include "compressor.h"
 #include "sqsh_defs.h"
 
-static void compress_zlib(std::vector<unsigned char> & out,
-                          std::vector<unsigned char> const & in)
+static void compress_zlib(block_type & out, block_type const & in)
 {
   auto zsize = compressBound(in.size());
   out.resize(zsize);
-  if (compress2(out.data(), &zsize, in.data(), in.size(), 9) != Z_OK)
+  if (compress2(reinterpret_cast<Bytef *>(out.data()), &zsize,
+                reinterpret_cast<Bytef const *>(in.data()), in.size(),
+                9) != Z_OK)
     throw std::runtime_error("failure in zlib::compress2"s);
   out.resize(zsize);
 }

@@ -31,9 +31,9 @@ template <typename T> static inline auto rup(T const a, T const s)
   return (std::size_t(1) << s) * factor;
 }
 
-void metadata_writer::write_block_compressed(
-    std::size_t const block_len, unsigned char const * const block,
-    uint16_t const bsize)
+void metadata_writer::write_block_compressed(std::size_t const block_len,
+                                             char const * const block,
+                                             uint16_t const bsize)
 {
   endian_buffer<2> buff;
   buff.l16(bsize);
@@ -64,7 +64,7 @@ void metadata_writer::write_block(void)
   write_block_no_pad();
 }
 
-meta_address metadata_writer::put(unsigned char const * b, std::size_t len)
+meta_address metadata_writer::put(char const * b, std::size_t len)
 {
   meta_address const addr = get_address();
 

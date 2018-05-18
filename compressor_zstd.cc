@@ -30,8 +30,7 @@ using namespace std::literals;
 #include "compressor.h"
 #include "sqsh_defs.h"
 
-static void compress_zstd(std::vector<unsigned char> & out,
-                          std::vector<unsigned char> const & in)
+static void compress_zstd(block_type & out, block_type const & in)
 {
   out.resize(ZSTD_compressBound(in.size()));
   auto const result =

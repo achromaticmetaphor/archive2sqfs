@@ -85,7 +85,7 @@ void sqsh_writer::write_header()
 
   fround_to(outfile, SQFS_PAD_SIZE);
   outfile.seekp(0);
-  outfile.write(reinterpret_cast<char const *>(header.data()), header.size());
+  outfile.write(header.data(), header.size());
 }
 
 template <typename T> static constexpr auto ITD_SHIFT(T entry_lb)
@@ -127,8 +127,7 @@ static void sqsh_writer_write_indexed_table(sqsh_writer & wr,
   mdw.out(wr.outfile);
   table_start = wr.outfile.tellp();
 
-  wr.outfile.write(reinterpret_cast<char const *>(indices.data()),
-                   indices.size());
+  wr.outfile.write(indices.data(), indices.size());
 }
 
 static inline void sqsh_writer_fragment_table_entry(endian_buffer<16> & buff,

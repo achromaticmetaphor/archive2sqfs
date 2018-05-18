@@ -28,23 +28,20 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 struct metadata_writer
 {
   compressor & comp;
-  std::vector<unsigned char> table;
-  std::vector<unsigned char> buff;
+  std::vector<char> table;
+  std::vector<char> buff;
 
-  void out(std::ostream & out)
-  {
-    out.write(reinterpret_cast<char *>(table.data()), table.size());
-  }
+  void out(std::ostream & out) { out.write(table.data(), table.size()); }
 
   meta_address get_address()
   {
     return meta_address(table.size(), buff.size());
   }
 
-  void write_block_compressed(std::size_t, unsigned char const *, uint16_t);
+  void write_block_compressed(std::size_t, char const *, uint16_t);
   void write_block_no_pad(void);
   void write_block(void);
-  meta_address put(unsigned char const *, size_t);
+  meta_address put(char const *, size_t);
 
   template <typename C> meta_address put(C const & c)
   {
