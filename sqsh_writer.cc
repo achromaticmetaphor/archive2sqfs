@@ -46,8 +46,7 @@ void sqsh_writer::flush_fragment()
 
 size_t sqsh_writer::put_fragment()
 {
-  size_t const block_size = (size_t) 1 << super.block_log;
-  if (current_fragment.size() + current_block.size() > block_size)
+  if (current_fragment.size() + current_block.size() > block_size())
     flush_fragment();
 
   size_t const offset = current_fragment.size();

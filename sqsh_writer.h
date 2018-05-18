@@ -96,6 +96,7 @@ struct sqsh_writer
   }
 
   uint32_t next_inode_number() { return next_inode++; }
+  std::size_t block_size() const { return std::size_t(1) << super.block_log; }
 
   void write_header();
   size_t put_fragment();

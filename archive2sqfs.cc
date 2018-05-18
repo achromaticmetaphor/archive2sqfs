@@ -101,7 +101,7 @@ int main(int argc, char * argv[])
   archive_reader archive =
       args.size() > 1 ? archive_reader(args[1]) : archive_reader(stdin);
   dirtree_dir rootdir(&writer);
-  int64_t const block_size = 1 << writer.super.block_log;
+  int64_t const block_size = writer.block_size();
 
   while (archive.next())
     {

@@ -30,8 +30,7 @@ void dirtree_reg::flush()
   if (wr->current_block.size() == 0)
     return;
 
-  auto const block_size = std::size_t(1) << wr->super.block_log;
-  if (wr->current_block.size() < block_size && block_count == 0)
+  if (wr->current_block.size() < wr->block_size() && block_count == 0)
     {
       offset = wr->put_fragment();
       fragment = wr->fragment_count;
@@ -46,15 +45,14 @@ void dirtree_reg::flush()
 void dirtree_reg::append(char const * buff, std::size_t len)
 {
   file_size += len;
-  auto const block_size = std::size_t(1) << wr->super.block_log;
   while (len != 0)
     {
-      auto const remaining = block_size - wr->current_block.size();
+      auto const remaining = wr->block_size() - wr->current_block.size();
       auto const added = len > remaining ? remaining : len;
       for (std::size_t i = 0; i < added; ++i)
         wr->current_block.push_back(buff[i]);
 
-      if (wr->current_block.size() == block_size)
+      if (wr->current_block.size() == wr->block_size())
         flush();
 
       len -= added;
