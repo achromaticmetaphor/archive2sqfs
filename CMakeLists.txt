@@ -16,6 +16,18 @@ target_link_libraries(archive2sqfs ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(archive2sqfs ${LibArchive_LIBRARIES})
 target_link_libraries(archive2sqfs ${ZLIB_LIBRARIES})
 
+if (USE_BOOST)
+  find_package(Boost 1.30.0 REQUIRED COMPONENTS filesystem)
+  include_directories(${Boost_INCLUDE_DIRS})
+  target_link_libraries(archive2sqfs ${Boost_LIBRARIES})
+  target_compile_definitions(archive2sqfs PRIVATE LSL_USE_BOOST=1)
+endif()
+
+if (USE_POSIX)
+  target_compile_definitions(archive2sqfs PRIVATE LSL_USE_POSIX=1)
+  target_compile_definitions(archive2sqfs PRIVATE _POSIX_C_SOURCE=200809L)
+endif()
+
 if (USE_ZSTD)
   find_package(PkgConfig REQUIRED)
   pkg_check_modules(ZSTD REQUIRED libzstd)

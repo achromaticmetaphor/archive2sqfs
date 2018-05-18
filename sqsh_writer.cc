@@ -24,19 +24,11 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "compressor.h"
 #include "endian_buffer.h"
+#include "filesystem.h"
 #include "metadata_writer.h"
 #include "sqsh_writer.h"
 
 #define MASK_LOW(N) (~((~0u) << (N)))
-
-static void fround_to(std::ostream & f, long int const block)
-{
-  auto const tell = f.tellp();
-
-  std::size_t const fill = block - (tell % block);
-  for (std::size_t i = 0; i < fill; ++i)
-    f << '\0';
-}
 
 void sqsh_writer::flush_fragment()
 {
@@ -83,9 +75,15 @@ void sqsh_writer::write_header()
   header.l64(super.fragment_table_start);
   header.l64(super.lookup_table_start);
 
-  fround_to(outfile, SQFS_PAD_SIZE);
+  auto end = outfile.tellp();
+  end += SQFS_PAD_SIZE - (end % SQFS_PAD_SIZE);
+
   outfile.seekp(0);
   outfile.write(header.data(), header.size());
+  outfile.flush();
+  outfile.close();
+
+  filesystem::resize_file(outfilepath, end);
 }
 
 template <typename T> static constexpr auto ITD_SHIFT(T entry_lb)

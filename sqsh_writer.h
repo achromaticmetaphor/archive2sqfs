@@ -71,6 +71,7 @@ struct sqsh_writer
 
   bool const single_threaded;
   std::thread thread;
+  std::string const outfilepath;
 
   std::unique_ptr<compressor> const comp;
   metadata_writer dentry_writer;
@@ -123,9 +124,10 @@ struct sqsh_writer
   template <typename P>
   sqsh_writer(P path, int blog, std::string comptype,
               bool disable_threads = false)
-      : single_threaded(disable_threads), comp(get_compressor_for(comptype)),
-        dentry_writer(*comp), inode_writer(*comp),
-        outfile(path, std::ios_base::binary), writer_queue(thread_count())
+      : single_threaded(disable_threads), outfilepath(path),
+        comp(get_compressor_for(comptype)), dentry_writer(*comp),
+        inode_writer(*comp), outfile(path, std::ios_base::binary),
+        writer_queue(thread_count())
   {
     super.block_log = blog;
     outfile.exceptions(std::ios_base::failbit);
