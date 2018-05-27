@@ -30,7 +30,7 @@ using namespace std::literals;
 #include "sqsh_defs.h"
 #include "sqsh_writer.h"
 
-static bool within16(uint32_t const a, uint32_t const b)
+static constexpr bool within16(uint32_t const a, uint32_t const b)
 {
   int64_t const diff = (int64_t) b - (int64_t) a;
   return diff < 0x7fff && diff > -0x8000;

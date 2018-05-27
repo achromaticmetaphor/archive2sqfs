@@ -30,8 +30,6 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #include "pending_write.h"
 #include "sqsh_writer.h"
 
-#define MASK_LOW(N) (~((~0u) << (N)))
-
 void sqsh_writer::flush_fragment()
 {
   if (!current_fragment.empty())
@@ -162,6 +160,11 @@ void sqsh_writer::write_header()
   outfile.close();
 
   filesystem::resize_file(outfilepath, end);
+}
+
+template <typename T> static constexpr auto MASK_LOW(T n)
+{
+  return ~((~0u) << n);
 }
 
 template <typename T> static constexpr auto ITD_SHIFT(T entry_lb)

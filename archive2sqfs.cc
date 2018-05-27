@@ -44,7 +44,8 @@ static int usage(std::string const & progname)
   return EINVAL;
 }
 
-static char const * strip_path(size_t const strip, char const * pathname)
+static constexpr char const * strip_path(size_t const strip,
+                                         char const * pathname)
 {
   for (size_t i = 0; i < strip; i++)
     {

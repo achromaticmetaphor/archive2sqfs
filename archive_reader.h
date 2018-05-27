@@ -57,7 +57,7 @@ private:
   archive_reader();
 };
 
-static std::size_t const reader_blocksize = 10240;
+static std::size_t constexpr reader_blocksize = 10240;
 
 inline archive_reader::archive_reader()
 {
