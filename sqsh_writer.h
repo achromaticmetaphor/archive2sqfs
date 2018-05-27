@@ -142,10 +142,16 @@ struct sqsh_writer
   void enqueue_block(uint32_t);
   void enqueue_dedup(uint32_t);
   void enqueue_fragment();
+  void enqueue(std::unique_ptr<pending_write<sqsh_writer>> &&);
   void writer_thread();
   bool finish_data();
   void push_fragment_entry(fragment_entry);
   optional<fragment_entry> get_fragment_entry(uint32_t);
+
+  auto launch_policy()
+  {
+    return single_threaded ? std::launch::deferred : std::launch::async;
+  }
 
   template <typename C> auto write_bytes(C const & c)
   {
