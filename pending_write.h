@@ -20,104 +20,65 @@ along with archive2sqfs.  If not, see <http://www.gnu.org/licenses/>.
 #define LSL_PENDING_WRITE_H
 
 #include <cstdint>
-#include <fstream>
 #include <future>
-#include <memory>
-#include <stdexcept>
-#include <string>
-#include <unordered_map>
-#include <utility>
-#include <vector>
 
-using namespace std::literals;
-
-#include "block_report.h"
 #include "compressor.h"
-#include "fragment_entry.h"
 
-template <typename T> struct pending_write
+struct sqsh_writer;
+
+struct pending_write
 {
-  T & writer;
+  sqsh_writer & writer;
   std::future<compression_result> future;
 
-  pending_write(T & writer, std::future<compression_result> && future)
+  pending_write(sqsh_writer & writer,
+                std::future<compression_result> && future)
       : writer(writer), future(std::move(future))
   {
   }
+
   virtual ~pending_write() = default;
 
   virtual void report(uint64_t, std::vector<char> &, bool) = 0;
-
-  virtual void handle_write()
-  {
-    auto result = future.get();
-    report(writer.write_bytes(result.block), result.block, result.compressed);
-  }
+  virtual void handle_write();
 };
 
-template <typename T> struct pending_fragment : public pending_write<T>
+struct pending_fragment : public pending_write
 {
-  pending_fragment(T & writer, std::future<compression_result> && future)
-      : pending_write<T>(writer, std::move(future))
+  pending_fragment(sqsh_writer & writer,
+                   std::future<compression_result> && future)
+      : pending_write(writer, std::move(future))
   {
   }
 
-  virtual void report(uint64_t start, std::vector<char> & block,
-                      bool compressed)
-  {
-    uint32_t const size = block.size();
-    pending_write<T>::writer.push_fragment_entry(
-        {start, size | (compressed ? 0 : SQFS_BLOCK_COMPRESSED_BIT)});
-  }
+  virtual void report(uint64_t, std::vector<char> &, bool);
 };
 
-template <typename T> struct pending_block : public pending_write<T>
+struct pending_block : public pending_write
 {
   uint32_t inode_number;
 
-  pending_block(T & writer, std::future<compression_result> && future,
+  pending_block(sqsh_writer & writer,
+                std::future<compression_result> && future,
                 uint32_t inode_number)
-      : pending_write<T>(writer, std::move(future)),
-        inode_number(inode_number)
+      : pending_write(writer, std::move(future)), inode_number(inode_number)
   {
   }
 
-  virtual void report(uint64_t start, std::vector<char> & block,
-                      bool compressed)
-  {
-    auto & report = pending_write<T>::writer.reports[inode_number];
-    if (report.sizes.empty())
-      report.start_block = start;
-    report.sizes.push_back(block.size() |
-                           (compressed ? 0 : SQFS_BLOCK_COMPRESSED_BIT));
-  }
+  virtual void report(uint64_t, std::vector<char> &, bool);
 };
 
-template <typename T> struct pending_dedup : public pending_write<T>
+struct pending_dedup : public pending_write
 {
   uint32_t const inode_number;
 
-  pending_dedup(T & writer, uint32_t inode_number)
-      : pending_write<T>(writer, {}), inode_number(inode_number)
+  pending_dedup(sqsh_writer & writer, uint32_t inode_number)
+      : pending_write(writer, {}), inode_number(inode_number)
   {
   }
 
   virtual void report(uint64_t, std::vector<char> &, bool) {}
-
-  virtual void handle_write()
-  {
-    auto & writer = pending_write<T>::writer;
-    auto const sum = writer.blocked_checksums[inode_number].sum;
-    auto & reports = writer.reports;
-    for (auto i : writer.blocked_duplicates[sum])
-      if (reports[inode_number].same_content(reports[i], writer))
-        {
-          writer.drop_bytes(reports[inode_number].range_len());
-          reports[inode_number] = reports[i];
-          return;
-        }
-    writer.blocked_duplicates[sum].push_back(inode_number);
-  }
+  virtual void handle_write();
 };
 
 #endif

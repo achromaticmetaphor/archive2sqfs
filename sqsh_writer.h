@@ -108,32 +108,18 @@ struct sqsh_writer
   std::fstream outfile;
   std::mutex outfile_mutex;
 
-  bounded_work_queue<std::unique_ptr<pending_write<sqsh_writer>>>
-      writer_queue;
+  bounded_work_queue<std::unique_ptr<pending_write>> writer_queue;
   std::atomic<bool> writer_failed{false};
 
   std::vector<fragment_entry> fragments;
   std::mutex fragments_mutex;
   std::condition_variable fragments_cv;
 
-  uint16_t id_lookup(uint32_t const id)
-  {
-    auto found = ids.find(id);
-    if (found == ids.end())
-      {
-        auto next = ids.size();
-        ids[id] = next;
-        rids[next] = id;
-        return next;
-      }
-    else
-      return found->second;
-  }
-
   uint32_t next_inode_number() { return next_inode++; }
   std::size_t block_size() const { return std::size_t(1) << super.block_log; }
 
   void write_header();
+  uint16_t id_lookup(uint32_t);
   optional<fragment_index> dedup_fragment_index(uint32_t);
   bool dedup_fragment(uint32_t);
   void put_fragment(uint32_t);
@@ -142,11 +128,13 @@ struct sqsh_writer
   void enqueue_block(uint32_t);
   void enqueue_dedup(uint32_t);
   void enqueue_fragment();
-  void enqueue(std::unique_ptr<pending_write<sqsh_writer>> &&);
+  void enqueue(std::unique_ptr<pending_write> &&);
   void writer_thread();
   bool finish_data();
   void push_fragment_entry(fragment_entry);
   optional<fragment_entry> get_fragment_entry(uint32_t);
+  std::vector<char> read_bytes(decltype(outfile)::pos_type, std::streamsize);
+  void drop_bytes(decltype(outfile)::off_type);
 
   auto launch_policy()
   {
@@ -159,26 +147,6 @@ struct sqsh_writer
     auto const tell = outfile.tellp();
     outfile.write(c.data(), c.size());
     return tell;
-  }
-
-  std::vector<char> read_bytes(decltype(outfile)::pos_type const pos,
-                               std::streamsize const len)
-  {
-    std::lock_guard<decltype(outfile_mutex)> lock(outfile_mutex);
-    restore_pos rp(outfile);
-    std::vector<char> v;
-
-    outfile.seekg(pos);
-    v.resize(len);
-    outfile.read(v.data(), v.size());
-
-    return v;
-  }
-
-  void drop_bytes(decltype(outfile)::off_type count)
-  {
-    std::lock_guard<decltype(outfile_mutex)> lock(outfile_mutex);
-    outfile.seekp(-count, std::ios_base::cur);
   }
 
   sqsh_writer(std::string path, int blog, std::string comptype,

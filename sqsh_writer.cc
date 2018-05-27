@@ -254,13 +254,47 @@ void sqsh_writer::write_tables()
   super.bytes_used = outfile.tellp();
 }
 
+uint16_t sqsh_writer::id_lookup(uint32_t const id)
+{
+  auto found = ids.find(id);
+  if (found == ids.end())
+    {
+      auto next = ids.size();
+      ids[id] = next;
+      rids[next] = id;
+      return next;
+    }
+  else
+    return found->second;
+}
+
+std::vector<char>
+sqsh_writer::read_bytes(decltype(outfile)::pos_type const pos,
+                        std::streamsize const len)
+{
+  std::lock_guard<decltype(outfile_mutex)> lock(outfile_mutex);
+  restore_pos rp(outfile);
+  std::vector<char> v;
+
+  outfile.seekg(pos);
+  v.resize(len);
+  outfile.read(v.data(), v.size());
+
+  return v;
+}
+
+void sqsh_writer::drop_bytes(decltype(outfile)::off_type count)
+{
+  std::lock_guard<decltype(outfile_mutex)> lock(outfile_mutex);
+  outfile.seekp(-count, std::ios_base::cur);
+}
+
 void sqsh_writer::enqueue_fragment()
 {
   if (!writer_failed)
-    enqueue(std::unique_ptr<pending_write<sqsh_writer>>(
-        new pending_fragment<sqsh_writer>(
-            *this, comp->compress_async(std::move(current_fragment),
-                                        launch_policy()))));
+    enqueue(std::unique_ptr<pending_write>(new pending_fragment(
+        *this,
+        comp->compress_async(std::move(current_fragment), launch_policy()))));
   ++fragment_count;
   current_fragment.clear();
 }
@@ -268,23 +302,21 @@ void sqsh_writer::enqueue_fragment()
 void sqsh_writer::enqueue_block(uint32_t inode_number)
 {
   if (!writer_failed)
-    enqueue(std::unique_ptr<pending_write<sqsh_writer>>(
-        new pending_block<sqsh_writer>(
-            *this,
-            comp->compress_async(std::move(current_block), launch_policy()),
-            inode_number)));
+    enqueue(std::unique_ptr<pending_write>(new pending_block(
+        *this,
+        comp->compress_async(std::move(current_block), launch_policy()),
+        inode_number)));
   current_block.clear();
 }
 
 void sqsh_writer::enqueue_dedup(uint32_t inode_number)
 {
   if (dedup_enabled && !writer_failed)
-    enqueue(std::unique_ptr<pending_write<sqsh_writer>>(
-        new pending_dedup<sqsh_writer>(*this, inode_number)));
+    enqueue(std::unique_ptr<pending_write>(
+        new pending_dedup(*this, inode_number)));
 }
 
-void sqsh_writer::enqueue(
-    std::unique_ptr<pending_write<sqsh_writer>> && write)
+void sqsh_writer::enqueue(std::unique_ptr<pending_write> && write)
 {
   if (single_threaded)
     write->handle_write();
