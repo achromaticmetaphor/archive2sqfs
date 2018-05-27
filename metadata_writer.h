@@ -38,7 +38,7 @@ struct metadata_writer
     return meta_address(table.size(), buff.size());
   }
 
-  void write_block_compressed(std::size_t, char const *, uint16_t);
+  void write_block_compressed(std::vector<char> const &, uint16_t);
   void write_block_no_pad(void);
   void write_block(void);
   meta_address put(char const *, size_t);
